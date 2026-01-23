@@ -1,183 +1,134 @@
-const Security = require("../models/security");
-const User = require("../models/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { generateSecurityToken } = require("../services/token");
+const Security = require("../models/security");
 
+// Security login
 exports.loginAsSecurity = async (req, res) => {
   try {
-    const { email, password, placeId } = req.body; 
+    const { email, password, placeId } = req.body;
 
     if (!email || !password || !placeId) {
       return res.status(400).json({ 
-        success: false,
-        message: "Email, password, and placeId required" 
+        success: false, 
+        message: "Email, password, and event are required" 
       });
     }
 
-    const security = await Security.findOne({
-      email: email.toLowerCase(),
+    // Find security assigned to this place
+    const security = await Security.findOne({ 
+      email: email.toLowerCase(), 
       place: placeId,
-      isActive: true
-    }).populate("place");
+      isActive: true 
+    }).populate('place', 'name');
 
     if (!security) {
       return res.status(404).json({ 
-        success: false,
-        message: "Security assignment not found or inactive" 
+        success: false, 
+        message: "You are not assigned as security for this event" 
       });
     }
 
+    // Verify password
     const isMatch = await bcrypt.compare(password, security.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ 
-        success: false,
-        message: "Invalid credentials" 
+        success: false, 
+        message: "Invalid password" 
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const start = new Date(security.assignmentPeriod.start);
-    const end = new Date(security.assignmentPeriod.end);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
-
-    if (today < start || today > end) {
-      return res.status(403).json({ 
-        success: false,
-        message: "Security access expired or not yet started" 
-      });
+    // Check if assignment is still active
+    if (security.assignmentPeriod && security.assignmentPeriod.end) {
+      const now = new Date();
+      const endDate = new Date(security.assignmentPeriod.end);
+      if (now > endDate) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "Your security assignment has expired" 
+        });
+      }
     }
 
-    security.lastLoginAt = new Date();
-    if (!security.firstLoginAt) {
-      security.firstLoginAt = new Date();
-    }
-    security.loginCount = (security.loginCount || 0) + 1;
-    await security.save();
-
-    const token = generateSecurityToken(security);
+    // Generate token
+    const token = jwt.sign(
+      { 
+        id: security._id, 
+        role: 'SECURITY', 
+        placeId: security.place._id,
+        email: security.email
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
     res.json({
       success: true,
-      message: "Security login successful",
+      message: "Login successful",
       token,
       security: {
         id: security._id,
         email: security.email,
-        place: {
-          id: security.place._id,
-          name: security.place.name,
-          location: security.place.location
-        },
-        assignmentPeriod: security.assignmentPeriod
+        place: security.place.name,
+        placeId: security.place._id
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: error.message 
-    });
+    console.error("Security login error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.acceptSecurityInvite = async (req, res) => {
-  try {
-    const { securityId, inviteToken } = req.params;
-    const { password, confirmPassword } = req.body;
-
-    let security;
-
-    if (securityId) {
-      security = await Security.findById(securityId).populate("place");
-    } else if (inviteToken) {
-      security = await Security.findOne({ inviteToken }).populate("place");
-    }
-
-    if (!security) {
-      return res.status(404).json({ 
-        success: false,
-        message: "Security invitation not found" 
-      });
-    }
-
-    if (security.status === "ACCEPTED") {
-      return res.status(400).json({ 
-        success: false,
-        message: "Invitation already accepted" 
-      });
-    }
-
-    // If password provided, update it
-    if (password && confirmPassword) {
-      if (password !== confirmPassword) {
-        return res.status(400).json({ 
-          success: false,
-          message: "Passwords do not match" 
-        });
-      }
-
-      const newHash = await bcrypt.hash(password, 10);
-      security.passwordHash = newHash;
-    }
-
-    security.status = "ACCEPTED";
-    security.isActive = true;
-    security.invitationAcceptedAt = new Date();
-    await security.save();
-
-    res.json({
-      success: true,
-      message: "Security invitation accepted successfully",
-      security: {
-        id: security._id,
-        email: security.email,
-        place: {
-          id: security.place._id,
-          name: security.place.name
-        }
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: error.message 
-    });
-  }
-};
-
+// Change password
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword, confirmPassword } = req.body;
-    const security = req.security;
 
+    // Validate inputs
     if (!currentPassword || !newPassword || !confirmPassword) {
       return res.status(400).json({ 
-        success: false,
-        message: "All password fields required" 
+        success: false, 
+        message: "All fields are required" 
       });
     }
 
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ 
-        success: false,
+        success: false, 
         message: "New passwords do not match" 
       });
     }
 
+    if (newPassword.length < 8) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Password must be at least 8 characters" 
+      });
+    }
+
+    // Get security from token (set by authMiddleware)
+    const security = await Security.findById(req.user.id);
+
+    if (!security) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Security account not found" 
+      });
+    }
+
+    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, security.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ 
-        success: false,
+        success: false, 
         message: "Current password is incorrect" 
       });
     }
 
-    const newHash = await bcrypt.hash(newPassword, 10);
-    security.passwordHash = newHash;
-    security.passwordChangedAt = new Date();
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    security.passwordHash = hashedPassword;
     await security.save();
 
     res.json({
@@ -185,9 +136,7 @@ exports.changePassword = async (req, res) => {
       message: "Password changed successfully"
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: error.message 
-    });
+    console.error("Change password error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -1,3 +1,4 @@
+// src/components/common/ThemeToggle.jsx
 import React, { useContext } from 'react';
 import { ThemeContext } from '../../context/ThemeContext';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline';  // Install @heroicons/react if needed

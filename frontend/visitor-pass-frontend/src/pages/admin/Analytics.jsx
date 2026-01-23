@@ -1,3 +1,4 @@
+// src/pages/admin/Analytics.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import TrafficChart from '../../components/admin/TrafficChart';

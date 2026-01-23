@@ -1,10 +1,18 @@
+below are the complete controller file code
+
 admin.js
+
+// backend/controllers/admin.js - COMPLETE VERSION
 
 const User = require("../models/user");
 const Pass = require("../models/pass");
+const Place = require("../models/place");
+const Security = require("../models/security");
+const Booking = require("../models/booking");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sendAdminInviteMail } = require("../services/admininvitemail");
+const { sendPassEmail } = require("../services/email");
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -207,6 +215,355 @@ exports.disableUser = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: error.message 
+    });
+  }
+};
+
+exports.getAllUpcomingEvents = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const events = await Place.find({
+      "eventDates.end": { $gte: today }
+    })
+      .populate('host', 'name email subscription')
+      .sort({ "eventDates.start": 1 });
+
+    const enriched = await Promise.all(
+      events.map(async (event) => {
+        const totalBookings = await Pass.countDocuments({
+          place: event._id,
+          status: "APPROVED"
+        });
+
+        const security = await Security.countDocuments({
+          place: event._id,
+          isActive: true
+        });
+
+        return {
+          _id: event._id,
+          title: event.name,
+          location: event.location,
+          image: event.image,
+          host: event.host,
+          eventDates: event.eventDates,
+          capacity: event.dailyCapacity,
+          bookings: totalBookings,
+          remainingSeats: event.dailyCapacity - totalBookings,
+          isBookingEnabled: event.isBookingEnabled,
+          security: security,
+          price: event.price
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      count: enriched.length,
+      events: enriched
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.getAllHosts = async (req, res) => {
+  try {
+    const hosts = await User.find({ 
+      $or: [
+        { role: 'HOST' },
+        { 'subscription.isActive': true }
+      ]
+    })
+      .select('name email subscription isActive createdAt')
+      .populate('subscription.planId')
+      .sort({ createdAt: -1 });
+
+    const enriched = await Promise.all(
+      hosts.map(async (host) => {
+        const eventsCount = await Place.countDocuments({ host: host._id });
+        const activeEvents = await Place.countDocuments({
+          host: host._id,
+          "eventDates.end": { $gte: new Date() }
+        });
+
+        const totalRevenue = await Pass.aggregate([
+          { 
+            $lookup: {
+              from: 'places',
+              localField: 'place',
+              foreignField: '_id',
+              as: 'placeData'
+            }
+          },
+          { $unwind: '$placeData' },
+          { 
+            $match: { 
+              'placeData.host': host._id,
+              paymentStatus: 'PAID'
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: '$amountPaid' }
+            }
+          }
+        ]);
+
+        return {
+          ...host.toObject(),
+          eventsCount,
+          activeEvents,
+          totalRevenue: totalRevenue[0]?.total || 0
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      count: enriched.length,
+      hosts: enriched
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.toggleUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role === 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot modify Super Admin'
+      });
+    }
+
+    user.isActive = !user.isActive;
+    if (!user.isActive) {
+      user.disabledAt = new Date();
+      user.disabledReason = reason || 'Toggled by admin';
+    } else {
+      user.disabledAt = null;
+      user.disabledReason = null;
+    }
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User ${user.isActive ? 'enabled' : 'disabled'} successfully`,
+      user: {
+        _id: user._id,
+        isActive: user.isActive
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.cancelEventByAdmin = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user.id;
+
+    const place = await Place.findById(eventId).populate('host', 'name email');
+
+    if (!place) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Get all active passes
+    const activePasses = await Pass.find({
+      place: eventId,
+      status: { $in: ['APPROVED', 'PENDING'] },
+      paymentStatus: 'PAID'
+    }).populate('bookedBy', 'name email')
+      .populate('bookingId');
+
+    let totalRefundAmount = 0;
+    const affectedBookings = new Map();
+
+    // Process 100% refunds
+    for (const pass of activePasses) {
+      const refundAmount = pass.amountPaid || 0;
+      totalRefundAmount += refundAmount;
+
+      pass.status = 'CANCELLED';
+      pass.refundStatus = 'INITIATED';
+      pass.refundAmount = refundAmount;
+      pass.refundPercentage = 100;
+      pass.cancelledAt = new Date();
+      pass.cancellationReason = `Event cancelled by admin: ${reason}`;
+      pass.cancelledBy = 'ADMIN';
+      pass.cancelledByUserId = adminId;
+      await pass.save();
+
+      const bookingId = pass.bookingId._id.toString();
+      if (!affectedBookings.has(bookingId)) {
+        affectedBookings.set(bookingId, {
+          booking: pass.bookingId,
+          refundAmount: 0,
+          passes: []
+        });
+      }
+      affectedBookings.get(bookingId).refundAmount += refundAmount;
+      affectedBookings.get(bookingId).passes.push(pass);
+    }
+
+    // Update bookings
+    for (const [bookingId, data] of affectedBookings) {
+      const booking = data.booking;
+      booking.status = 'CANCELLED';
+      booking.refundStatus = 'FULL';
+      booking.refundAmount = data.refundAmount;
+      booking.cancelledAt = new Date();
+      booking.cancellationReason = `Event cancelled by admin: ${reason}`;
+      await booking.save();
+
+      // Send email to visitor
+      if (booking.visitor?.email) {
+        const emailContent = `
+          <h2>Event Cancelled - Full Refund Issued</h2>
+          <p>Dear visitor,</p>
+          <p>We regret to inform you that the event "${place.name}" has been cancelled by the administration.</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p><strong>Refund Amount:</strong> ₹${data.refundAmount}</p>
+          <p>Your refund will be processed within 3-5 business days.</p>
+        `;
+
+        await sendPassEmail({
+          to: booking.visitor.email,
+          subject: `Event Cancelled - ${place.name}`,
+          html: emailContent,
+          type: 'visitor'
+        });
+      }
+    }
+
+    // Update place status
+    place.status = 'CANCELLED';
+    place.isBookingEnabled = false;
+    place.cancelledAt = new Date();
+    place.cancellationReason = reason;
+    place.cancelledBy = 'ADMIN';
+    await place.save();
+
+    // Notify host
+    if (place.host?.email) {
+      const hostEmailContent = `
+        <h2>Your Event Has Been Cancelled</h2>
+        <p>Dear ${place.host.name},</p>
+        <p>Your event "${place.name}" has been cancelled by the administration.</p>
+        <p><strong>Reason:</strong> ${reason}</p>
+        <p><strong>Total Refunds:</strong> ₹${totalRefundAmount}</p>
+        <p><strong>Affected Visitors:</strong> ${affectedBookings.size}</p>
+        <p>All visitors have been notified and will receive full refunds.</p>
+      `;
+
+      await sendPassEmail({
+        to: place.host.email,
+        subject: `Event Cancelled - ${place.name}`,
+        html: hostEmailContent,
+        type: 'host'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Event cancelled successfully. All visitors will be refunded 100%.',
+      data: {
+        eventId,
+        eventName: place.name,
+        totalRefunds: totalRefundAmount,
+        affectedVisitors: affectedBookings.size
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.getEventDetailsForAdmin = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const place = await Place.findById(eventId).populate('host', 'name email phone subscription');
+    
+    if (!place) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    const totalBookings = await Pass.countDocuments({
+      place: eventId,
+      status: 'APPROVED'
+    });
+
+    const security = await Security.find({
+      place: eventId,
+      isActive: true
+    }).select('email status assignmentPeriod');
+
+    const revenue = await Pass.aggregate([
+      { $match: { place: place._id, paymentStatus: 'PAID' } },
+      { $group: { _id: null, total: { $sum: '$amountPaid' } } }
+    ]);
+
+    res.json({
+      success: true,
+      event: {
+        _id: place._id,
+        name: place.name,
+        location: place.location,
+        image: place.image,
+        eventDates: place.eventDates,
+        price: place.price,
+        capacity: place.dailyCapacity,
+        isBookingEnabled: place.isBookingEnabled,
+        refundPolicy: place.refundPolicy,
+        host: place.host,
+        bookings: totalBookings,
+        remainingSeats: place.dailyCapacity - totalBookings,
+        revenue: revenue[0]?.total || 0,
+        security: security
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
@@ -718,7 +1075,6 @@ module.exports = {
 };
 
 host.js
-
 const Place = require("../models/place");
 const Pass = require("../models/pass");
 const Security = require("../models/security");
@@ -1532,6 +1888,156 @@ exports.cancelMyEvent = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: error.message 
+    });
+  }
+};
+
+exports.getSecurityForPlace = async (req, res) => {
+  try {
+    const { placeId } = req.params;
+    const hostId = req.user.id;
+
+    // Verify the place belongs to the host
+    const place = await Place.findOne({ _id: placeId, host: hostId });
+    
+    if (!place) {
+      return res.status(404).json({
+        success: false,
+        message: 'Place not found or unauthorized'
+      });
+    }
+
+    // Get all security personnel for this place
+    const security = await Security.find({ place: placeId })
+      .select('email status isActive assignmentPeriod invitationAcceptedAt firstLoginAt lastLoginAt')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: security.length,
+      security: security.map(s => ({
+        _id: s._id,
+        email: s.email,
+        status: s.status,
+        isActive: s.isActive,
+        assignmentPeriod: s.assignmentPeriod,
+        invitationAcceptedAt: s.invitationAcceptedAt,
+        firstLoginAt: s.firstLoginAt,
+        lastLoginAt: s.lastLoginAt
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.updateEventDetailsWithNotification = async (req, res) => {
+  try {
+    const { placeId } = req.params;
+    const { name, location, image, price, refundPolicy } = req.body;
+    const hostId = req.user.id;
+
+    const Place = require("../models/place");
+    const Booking = require("../models/booking");
+    const { sendPassEmail } = require("../services/email");
+
+    const place = await Place.findOne({ _id: placeId, host: hostId });
+
+    if (!place) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found or unauthorized'
+      });
+    }
+
+    // Store old values for notification
+    const oldDetails = {
+      name: place.name,
+      location: place.location,
+      price: place.price
+    };
+
+    // Update fields (same as editPlace)
+    if (name) place.name = name;
+    if (location) place.location = location;
+    if (image) place.image = image;
+    if (price !== undefined) place.price = price;
+    if (refundPolicy) {
+      place.refundPolicy = {
+        ...place.refundPolicy,
+        ...refundPolicy
+      };
+    }
+
+    await place.save();
+
+    // ✅ NEW: Get all affected bookings and notify visitors
+    const bookings = await Booking.find({
+      place: placeId,
+      visitDate: { $gte: new Date() },
+      status: { $in: ['CONFIRMED', 'PENDING'] }
+    }).populate('visitor', 'name email');
+
+    // Build list of changes
+    const changes = [];
+    if (name && name !== oldDetails.name) changes.push(`Name: ${oldDetails.name} → ${name}`);
+    if (location && location !== oldDetails.location) changes.push(`Location: ${oldDetails.location} → ${location}`);
+    if (price !== undefined && price !== oldDetails.price) changes.push(`Price: ₹${oldDetails.price} → ₹${price}`);
+
+    // Send emails if there are changes
+    let notifiedCount = 0;
+    if (changes.length > 0) {
+      for (const booking of bookings) {
+        if (booking.visitor?.email) {
+          try {
+            const emailContent = `
+              <!DOCTYPE html>
+              <html>
+              <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+                  <h2 style="color: white; margin: 0;">Event Details Updated</h2>
+                </div>
+                <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 10px 10px;">
+                  <p>Dear ${booking.visitor.name},</p>
+                  <p>The following details have been updated for <strong>"${place.name}"</strong>:</p>
+                  <ul style="background: #f3f4f6; padding: 20px; border-radius: 5px;">
+                    ${changes.map(change => `<li style="margin: 10px 0;">${change}</li>`).join('')}
+                  </ul>
+                  <p style="color: #059669; font-weight: bold;">✓ Your booking remains valid</p>
+                  <p>If you have any concerns, please contact support.</p>
+                </div>
+              </body>
+              </html>
+            `;
+
+            await sendPassEmail({
+              to: booking.visitor.email,
+              subject: `Event Updated - ${place.name}`,
+              html: emailContent,
+              type: 'visitor'
+            });
+            notifiedCount++;
+          } catch (emailError) {
+            console.error(`Failed to send email to ${booking.visitor.email}:`, emailError);
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Event details updated successfully',
+      place,
+      notified: notifiedCount,
+      changes: changes.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };

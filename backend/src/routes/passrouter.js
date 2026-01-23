@@ -15,7 +15,7 @@ router.get("/bookings", authMiddleware, visitorController.getAllBookingsByVisito
 router.get("/booking/:bookingId", authMiddleware, visitorController.getBookingDetails);
 
 // Cancellation
-router.patch("/cancel/:passId", authMiddleware, passController.cancelGuestPass);
+router.patch("/:passId/cancel", authMiddleware, passController.cancelGuestPass);
 router.patch("/cancel-bulk", authMiddleware, passController.cancelMultiplePasses);
 
 // Payment

@@ -1,3 +1,4 @@
+// src/context/ThemeContext.jsx
 import React, { createContext, useState, useEffect } from 'react';
 
 export const ThemeContext = createContext();  // This must be exported

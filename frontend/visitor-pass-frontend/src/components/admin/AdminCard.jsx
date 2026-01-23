@@ -1,6 +1,6 @@
 // src/components/admin/AdminCard.jsx
 import React, { useState } from 'react';
-import { UserCog, Mail, Calendar, ShieldX, CheckCircle, XCircle } from 'lucide-react';
+import { UserCog, Mail, Calendar, ShieldOff, CheckCircle, XCircle } from 'lucide-react';
 import ConfirmModal from '../common/ConfirmModal';
 
 const AdminCard = ({ admin, onDisable }) => {
@@ -97,7 +97,7 @@ const AdminCard = ({ admin, onDisable }) => {
             onClick={() => setShowConfirm(true)}
             className="w-full py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-semibold flex items-center justify-center gap-2"
           >
-            <ShieldX className="w-5 h-5" />
+            <ShieldOff className="w-5 h-5" />
             Disable Admin
           </button>
         )}

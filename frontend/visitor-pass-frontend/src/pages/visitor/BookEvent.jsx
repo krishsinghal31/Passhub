@@ -1,3 +1,4 @@
+// src/pages/visitor/BookEvent.jsx
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import BookingForm from '../../components/visitor/BookingForm';

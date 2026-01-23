@@ -2,61 +2,42 @@ below are the all router files in routes folder
 
 adminrouter.js
 
-const express = require("express");
+// backend/routes/admin.js - COMPLETE CORRECT VERSION
 
+const express = require('express');
 const router = express.Router();
+const {
+  getAllUsers,
+  getAllPasses,
+  inviteAdmin,
+  disableAdmin,
+  disableUser,
+  getAllUpcomingEvents,
+  getAllHosts,
+  toggleUserStatus,
+  cancelEventByAdmin,
+  getEventDetailsForAdmin
+} = require('../controllers/admin');
 
+// Import middlewares - CORRECT PATHS
+const auth = require('../middlewares/auth');  
+const { adminAuth } = require('../middlewares/adminAuth');  
 
+// Existing routes
+router.get('/users', auth, adminAuth, getAllUsers);
+router.get('/passes', auth, adminAuth, getAllPasses);
+router.post('/invite-admin', auth, adminAuth, inviteAdmin);
+router.post('/admins/:adminId/disable', auth, adminAuth, disableAdmin);
+router.post('/users/:userId/disable', auth, adminAuth, disableUser);
 
-const authMiddleware = require("../middlewares/auth");
-
-const authorize = require("../middlewares/role");
-
-
-
-const adminController = require("../controllers/admin");
-
-const adminEmergency = require("../controllers/adminemergency");
-
-
-
-// Admin getting users and passes data
-
-router.get("/users", authMiddleware, authorize("ADMIN", "SUPER_ADMIN"), adminController.getAllUsers);
-
-router.get("/passes", authMiddleware, authorize("ADMIN", "SUPER_ADMIN"), adminController.getAllPasses);
-
-
-
-// Invite admin (SUPER_ADMIN only)
-
-router.post("/invite", authMiddleware, authorize("SUPER_ADMIN"), adminController.inviteAdmin);
-
-
-
-// Disable admin (SUPER_ADMIN only)
-
-router.post("/disable/:adminId", authMiddleware, authorize("SUPER_ADMIN"), adminController.disableAdmin);
-
-
-
-// Added disable user route
-
-router.patch("/users/:userId/disable", authMiddleware, authorize("ADMIN", "SUPER_ADMIN"), adminController.disableUser);
-
-
-
-// Emergency actions
-
-router.post("/hosts/:hostId/disable", authMiddleware, authorize("ADMIN", "SUPER_ADMIN"), adminEmergency.disableHost);
-
-router.post("/places/:placeId/cancel", authMiddleware, authorize("ADMIN", "SUPER_ADMIN"), adminEmergency.cancelEvent);
-
-
+// ✅ NEW ROUTES
+router.get('/events/upcoming', auth, adminAuth, getAllUpcomingEvents);
+router.get('/hosts', auth, adminAuth, getAllHosts);
+router.post('/users/:userId/toggle', auth, adminAuth, toggleUserStatus);
+router.post('/events/:eventId/cancel', auth, adminAuth, cancelEventByAdmin);
+router.get('/events/:eventId/details', auth, adminAuth, getEventDetailsForAdmin);
 
 module.exports = router;
-
-```
 
 
 
@@ -109,7 +90,6 @@ router.get("/me", authMiddleware, async (req, res) => {
 module.exports = router;
 
 hostrouter.js
-
 const express = require("express");
 const router = express.Router();
 
@@ -140,8 +120,10 @@ router.delete("/places/:placeId/security/:securityId", authMiddleware, isPlaceHo
 
 // Slot management
 router.get("/places/:placeId/slots", authMiddleware, isPlaceHost, hostController.getSlots);
+router.get('/places/:placeId/security', authMiddleware, hostController.getSecurityForPlace);
 router.post("/events/:eventId/manual-override", authMiddleware, hostController.manualOverride);
 router.post("/places/:placeId/cancel",isPlaceHost, hostController.cancelMyEvent);
+router.put('/places/:placeId/details-notify', authMiddleware, hostController.updateEventDetailsWithNotification);
 
 // Host analytics 
 router.get("/events/:eventId/bookings-per-day", authMiddleware, hostAnalytics.getBookingsPerDay);

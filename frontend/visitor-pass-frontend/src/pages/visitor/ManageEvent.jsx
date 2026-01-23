@@ -1,22 +1,31 @@
-// src/pages/visitor/ManageEvent.jsx - COMPLETE UPDATE
+// src/pages/visitor/ManageEvent.jsx
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Calendar, MapPin, Users, DollarSign, ToggleLeft, ToggleRight, Shield, UserPlus, Settings as SettingsIcon } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Calendar, MapPin, Users, DollarSign, ToggleLeft, ToggleRight, Shield, UserPlus, Edit, XCircle, Eye } from 'lucide-react'; // Added Eye for Seats Status
 import api from '../../utils/api';
+import PageWrapper from '../../components/common/PageWrapper';
 import BackButton from '../../components/common/BackButton';
 import SecurityPersonnelCard from '../../components/visitor/SecurityPersonnelCard';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import UpdateCapacityModal from '../../components/common/UpdateCapacityModal';
+import UpdateDatesModal from '../../components/common/UpdateDatesModal';
+import InviteSecurityModal from '../../components/common/InviteSecurityModal';
+import CancelEventModal from '../../components/common/CancelEventModal';
+import AnalyticsCharts from '../../components/analytics/AnalyticsCharts';
+import SeatsStatusModal from '../../components/common/SeatsStatusModal'; // Added import
 
 const ManageEvent = () => {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [security, setSecurity] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showInviteForm, setShowInviteForm] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [assignmentPeriod, setAssignmentPeriod] = useState({ start: '', end: '' });
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
-  const [updateForm, setUpdateForm] = useState({ capacity: '', startDate: '', endDate: '' });
+  const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [showDatesModal, setShowDatesModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showSeatsModal, setShowSeatsModal] = useState(false); // Added state for modal
 
   useEffect(() => {
     fetchEventData();
@@ -26,21 +35,15 @@ const ManageEvent = () => {
     try {
       const [dashboardRes, securityRes] = await Promise.all([
         api.get(`/host/places/${eventId}/dashboard`),
-        api.get(`/host/places/${eventId}/security`)  // Assuming this endpoint exists
+        api.get(`/host/places/${eventId}/security`)
       ]);
 
       if (dashboardRes.data.success) {
         setEvent(dashboardRes.data.dashboard);
-        setUpdateForm({
-          capacity: dashboardRes.data.dashboard.place.capacity,
-          startDate: dashboardRes.data.dashboard.eventDates.start.split('T')[0],
-          endDate: dashboardRes.data.dashboard.eventDates.end.split('T')[0]
-        });
       }
       
-      // Security data might come from dashboard or separate endpoint
-      if (securityRes.data.security) {
-        setSecurity(securityRes.data.security);
+      if (securityRes.data.success) {
+        setSecurity(securityRes.data.security || []);
       }
     } catch (error) {
       console.error('Error fetching event data:', error);
@@ -51,12 +54,10 @@ const ManageEvent = () => {
 
   const handleToggleBooking = async () => {
     try {
-      const res = await api.post(`/host/places/${eventId}/toggle-booking`, {
-        reason: 'Manual toggle by host'
-      });
+      const res = await api.post(`/host/places/${eventId}/toggle-booking`);
       if (res.data.success) {
         fetchEventData();
-        alert(`Booking ${event.place.isBookingEnabled ? 'disabled' : 'enabled'} successfully`);
+        alert(`Booking ${event.place.isBookingEnabled ? 'disabled' : 'enabled'}`);
       }
     } catch (error) {
       alert('Error: ' + (error.response?.data?.message || error.message));
@@ -64,46 +65,39 @@ const ManageEvent = () => {
     setShowToggleConfirm(false);
   };
 
-  const handleUpdateCapacity = async () => {
+  const handleUpdateCapacity = async (newCapacity) => {
     try {
-      const res = await api.put(`/host/places/${eventId}/capacity`, {
-        dailyCapacity: parseInt(updateForm.capacity)
+      const res = await api.patch(`/host/places/${eventId}/capacity`, {
+        dailyCapacity: parseInt(newCapacity)
       });
       if (res.data.success) {
         fetchEventData();
-        alert('Capacity updated successfully');
+        alert('Capacity updated');
       }
     } catch (error) {
       alert('Error: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleUpdateDates = async () => {
+  const handleUpdateDates = async (dates) => {
     try {
-      const res = await api.put(`/host/events/${eventId}/dates`, {
-        date: updateForm.startDate
+      const res = await api.patch(`/host/events/${eventId}/dates`, {
+        date: dates.startDate
       });
       if (res.data.success) {
         fetchEventData();
-        alert('Event dates updated successfully');
+        alert('Dates updated. Attendees notified.');
       }
     } catch (error) {
       alert('Error: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  const handleInviteSecurity = async (e) => {
-    e.preventDefault();
+  const handleInviteSecurity = async (data) => {
     try {
-      const res = await api.post(`/host/places/${eventId}/invite-security`, {
-        email: inviteEmail,
-        assignmentPeriod
-      });
+      const res = await api.post(`/host/places/${eventId}/invite-security`, data);
       if (res.data.success) {
-        alert('Security invited successfully!');
-        setInviteEmail('');
-        setAssignmentPeriod({ start: '', end: '' });
-        setShowInviteForm(false);
+        alert('Security invited!');
         fetchEventData();
       }
     } catch (error) {
@@ -115,7 +109,7 @@ const ManageEvent = () => {
     try {
       const res = await api.delete(`/host/places/${eventId}/security/${securityId}`);
       if (res.data.success) {
-        alert('Security removed successfully');
+        alert('Security removed');
         fetchEventData();
       }
     } catch (error) {
@@ -123,28 +117,44 @@ const ManageEvent = () => {
     }
   };
 
+  const handleCancelEvent = async (reason) => {
+    try {
+      const res = await api.post(`/host/places/${eventId}/cancel`, { reason });
+      if (res.data.success) {
+        alert('Event cancelled. All visitors will receive 100% refund.');
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      alert('Error: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleSeatsStatus = () => { // Added handler
+    setShowSeatsModal(true);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600"></div>
-      </div>
+      <PageWrapper>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600"></div>
+        </div>
+      </PageWrapper>
     );
   }
 
-  if (!event) {
-    return <div className="min-h-screen flex items-center justify-center"><p>Event not found</p></div>;
-  }
+  if (!event) return <PageWrapper><div>Event not found</div></PageWrapper>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-6">
+    <PageWrapper className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-6">
       <div className="max-w-7xl mx-auto">
         <BackButton to="/dashboard" />
 
-        {/* Header with Booking Toggle */}
+        {/* Header */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">{event.place.name}</h1>
+                           <h1 className="text-3xl font-bold text-gray-800 mb-2">{event.place.name}</h1>
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="w-5 h-5" />
                 <span>{event.place.location}</span>
@@ -152,7 +162,7 @@ const ManageEvent = () => {
             </div>
             <button
               onClick={() => setShowToggleConfirm(true)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold ${
                 event.place.isBookingEnabled
                   ? 'bg-green-100 text-green-700 hover:bg-green-200'
                   : 'bg-red-100 text-red-700 hover:bg-red-200'
@@ -164,12 +174,12 @@ const ManageEvent = () => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6 mb-6">
-          {/* Stats Cards */}
+        {/* Stats */}
+        <div className="grid lg:grid-cols-4 gap-6 mb-6">
           <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
             <Users className="w-10 h-10 mb-3 opacity-80" />
             <p className="text-3xl font-bold mb-1">{event.stats.approvedPasses}</p>
-            <p className="text-indigo-100">Total Bookings</p>
+            <p className="text-indigo-100">Bookings</p>
           </div>
 
           <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
@@ -181,65 +191,64 @@ const ManageEvent = () => {
           <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
             <Calendar className="w-10 h-10 mb-3 opacity-80" />
             <p className="text-3xl font-bold mb-1">{event.stats.todayPasses}</p>
-            <p className="text-orange-100">Today's Visitors</p>
+            <p className="text-orange-100">Today</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl shadow-lg p-6 text-white">
+            <Shield className="w-10 h-10 mb-3 opacity-80" />
+            <p className="text-3xl font-bold mb-1">{security.length}</p>
+            <p className="text-blue-100">Security</p>
           </div>
         </div>
 
-        {/* Update Forms */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-6">
-          {/* Update Capacity */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <SettingsIcon className="w-6 h-6 text-indigo-600" />
-              Update Capacity
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Daily Capacity</label>
-                <input
-                  type="number"
-                  value={updateForm.capacity}
-                  onChange={(e) => setUpdateForm({ ...updateForm, capacity: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  min="1"
-                />
-              </div>
-              <button
-                onClick={handleUpdateCapacity}
-                className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
-              >
-                Update Capacity
-              </button>
-            </div>
-          </div>
+        {/* Action Buttons */}
+        <div className="grid md:grid-cols-5 gap-4 mb-6">  {/* Updated to 5 columns for Seats Status */}
+          <button
+            onClick={() => setShowCapacityModal(true)}
+            className="px-6 py-3 bg-white border-2 border-indigo-600 text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-semibold flex items-center justify-center gap-2"
+          >
+            <Users className="w-5 h-5" />
+            Update Capacity
+          </button>
 
-          {/* Update Event Dates */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Calendar className="w-6 h-6 text-indigo-600" />
-              Update Event Dates
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
-                <input
-                  type="date"
-                  value={updateForm.startDate}
-                  onChange={(e) => setUpdateForm({ ...updateForm, startDate: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-              <button
-                onClick={handleUpdateDates}
-                className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
-              >
-                Update Dates
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={() => setShowDatesModal(true)}
+            className="px-6 py-3 bg-white border-2 border-purple-600 text-purple-600 rounded-xl hover:bg-purple-50 transition-all font-semibold flex items-center justify-center gap-2"
+          >
+            <Calendar className="w-5 h-5" />
+            Update Dates
+          </button>
+
+          <button
+            onClick={() => navigate(`/edit-event/${eventId}`)}
+            className="px-6 py-3 bg-white border-2 border-green-600 text-green-600 rounded-xl hover:bg-green-50 transition-all font-semibold flex items-center justify-center gap-2"
+          >
+            <Edit className="w-5 h-5" />
+            Edit Details
+          </button>
+
+          <button
+            onClick={handleSeatsStatus}  // Added Seats Status button
+            className="px-6 py-3 bg-white border-2 border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all font-semibold flex items-center justify-center gap-2"
+          >
+            <Eye className="w-5 h-5" />
+            Seats Status
+          </button>
+
+          <button
+            onClick={() => setShowCancelModal(true)}
+            className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-semibold flex items-center justify-center gap-2"
+          >
+            <XCircle className="w-5 h-5" />
+            Cancel Event
+          </button>
         </div>
 
-        {/* Security Personnel Section */}
+        <div className="mb-6">
+          <AnalyticsCharts eventId={eventId} type="host" />
+        </div>
+
+        {/* Security Section */}
         <div className="bg-white rounded-xl shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -247,50 +256,13 @@ const ManageEvent = () => {
               Security Personnel
             </h3>
             <button
-              onClick={() => setShowInviteForm(!showInviteForm)}
+              onClick={() => setShowInviteModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg"
             >
               <UserPlus className="w-5 h-5" />
               Invite Security
             </button>
           </div>
-
-          {showInviteForm && (
-            <form onSubmit={handleInviteSecurity} className="mb-6 p-4 bg-indigo-50 rounded-lg">
-              <div className="grid md:grid-cols-3 gap-4">
-                <input
-                  type="email"
-                  placeholder="Security Email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  required
-                />
-                <input
-                  type="date"
-                  placeholder="Start Date"
-                  value={assignmentPeriod.start}
-                  onChange={(e) => setAssignmentPeriod({ ...assignmentPeriod, start: e.target.value })}
-                  className="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  required
-                />
-                <input
-                  type="date"
-                  placeholder="End Date"
-                  value={assignmentPeriod.end}
-                  onChange={(e) => setAssignmentPeriod({ ...assignmentPeriod, end: e.target.value })}
-                  className="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                className="mt-3 w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
-              >
-                Send Invitation
-              </button>
-            </form>
-          )}
 
           {security.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-4">
@@ -303,21 +275,59 @@ const ManageEvent = () => {
               ))}
             </div>
           ) : (
-            <p className="text-center text-gray-500 py-8">No security personnel assigned yet.</p>
+            <p className="text-center text-gray-500 py-8">No security assigned yet.</p>
           )}
         </div>
       </div>
 
+      {/* Modals */}
       <ConfirmModal
         isOpen={showToggleConfirm}
         title={`${event.place.isBookingEnabled ? 'Disable' : 'Enable'} Booking`}
-        message={`Are you sure you want to ${event.place.isBookingEnabled ? 'disable' : 'enable'} booking for this event?`}
+        message={`Are you sure you want to ${event.place.isBookingEnabled ? 'disable' : 'enable'} booking?`}
         onConfirm={handleToggleBooking}
         onCancel={() => setShowToggleConfirm(false)}
-        confirmText={event.place.isBookingEnabled ? 'Disable' : 'Enable'}
         type={event.place.isBookingEnabled ? 'warning' : 'success'}
       />
-    </div>
+
+      <UpdateCapacityModal
+        isOpen={showCapacityModal}
+        currentCapacity={event.place.capacity}
+        onUpdate={handleUpdateCapacity}
+        onClose={() => setShowCapacityModal(false)}
+      />
+
+      <UpdateDatesModal
+        isOpen={showDatesModal}
+        currentDates={event.eventDates}
+        onUpdate={handleUpdateDates}
+        onClose={() => setShowDatesModal(false)}
+      />
+
+      <InviteSecurityModal
+        isOpen={showInviteModal}
+        onInvite={handleInviteSecurity}
+        onClose={() => setShowInviteModal(false)}
+      />
+
+      <CancelEventModal
+        isOpen={showCancelModal}
+        eventName={event.place.name}
+        onCancel={handleCancelEvent}
+        onClose={() => setShowCancelModal(false)}
+      />
+
+      {/* Added Seats Status Modal */}
+      {showSeatsModal && (
+         <SeatsStatusModal
+    isOpen={showSeatsModal}
+    eventId={eventId}
+    totalCapacity={event.place.capacity}
+    apiPath={`/host/places/${eventId}/slots`}  
+    onClose={() => setShowSeatsModal(false)}
+  />
+      )}
+    </PageWrapper>
   );
 };
 

@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/common/AuthModal.jsx
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { XMarkIcon, EnvelopeIcon, LockClosedIcon, UserIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';

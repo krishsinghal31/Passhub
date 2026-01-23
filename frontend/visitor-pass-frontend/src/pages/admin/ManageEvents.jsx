@@ -1,3 +1,4 @@
+// src/pages/admin/ManageUsers.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import ActionModal from '../../components/admin/ActionModal';

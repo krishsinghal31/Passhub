@@ -1,4 +1,4 @@
-// src/pages/visitor/BookingDetails.jsx - NEW FILE
+// src/pages/visitor/BookingDetails.jsx 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Users, CreditCard, QrCode, Download } from 'lucide-react';
@@ -10,6 +10,7 @@ const BookingDetails = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPasses, setSelectedPasses] = useState([]);
 
   useEffect(() => {
     fetchBookingDetails();
@@ -17,7 +18,7 @@ const BookingDetails = () => {
 
   const fetchBookingDetails = async () => {
     try {
-      const res = await api.get(`/passes/bookings/${bookingId}`);
+      const res = await api.get(`/passes/booking/${bookingId}`); // Matches router
       if (res.data.success) {
         setBooking(res.data.booking);
       }
@@ -38,6 +39,28 @@ const BookingDetails = () => {
       day: 'numeric', 
       year: 'numeric' 
     });
+  };
+
+  const handleCancelSelected = async () => {
+    if (selectedPasses.length === 0) return;
+    try {
+      const res = await api.patch('/passes/cancel-bulk', { passIds: selectedPasses });
+      if (res.data.success) {
+        alert(`${selectedPasses.length} passes cancelled successfully`);
+        fetchBookingDetails(); // Refresh data
+        setSelectedPasses([]);
+      }
+    } catch (error) {
+      alert('Error: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const togglePassSelection = (passId) => {
+    setSelectedPasses(prev =>
+      prev.includes(passId)
+        ? prev.filter(id => id !== passId)
+        : [...prev, passId]
+    );
   };
 
   const statusColors = {
@@ -119,6 +142,14 @@ const BookingDetails = () => {
           {booking.passes && booking.passes.length > 0 && (
             <div>
               <h3 className="text-xl font-bold text-gray-800 mb-4">Guest Passes</h3>
+              {selectedPasses.length > 0 && (
+                <button
+                  onClick={handleCancelSelected}
+                  className="mb-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold"
+                >
+                  Cancel Selected ({selectedPasses.length})
+                </button>
+              )}
               <div className="grid md:grid-cols-2 gap-4">
                 {booking.passes.map((pass, idx) => (
                   <div key={idx} className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-200">
@@ -135,6 +166,13 @@ const BookingDetails = () => {
                       )}
                     </div>
                     <div className="flex justify-between items-center pt-3 border-t border-indigo-200">
+                      <input
+                        type="checkbox"
+                        checked={selectedPasses.includes(pass._id)}
+                        onChange={() => togglePassSelection(pass._id)}
+                        className="w-4 h-4"
+                        disabled={pass.status === 'CANCELLED'}
+                      />
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                         pass.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 
                         pass.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :

@@ -1,4 +1,4 @@
-// src/components/common/ConfirmModal.jsx
+// src/components/common/SuccessModal.jsx
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 

@@ -1,27 +1,5 @@
-// import React, { useContext } from 'react';
-// import { useNavigate } from 'react-router-dom';
-// import { AuthContext } from '../../context/AuthContext';
-// import EventForm from '../../components/visitor/EventForm';
 
-// const CreateEvent = () => {
-//   const { user } = useContext(AuthContext);
-//   const navigate = useNavigate();
-
-//   if (!user?.subscription?.isActive) {
-//     navigate('/subscriptions');
-//     return null;
-//   }
-
-//   return (
-//     <div className="p-6">
-//       <h1 className="text-2xl font-bold mb-4">Create Event</h1>
-//       <EventForm />
-//     </div>
-//   );
-// };
-
-// export default CreateEvent;
-// src/pages/visitor/CreateEvent.jsx - UPDATED
+// src/pages/visitor/CreateEvent.jsx 
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';

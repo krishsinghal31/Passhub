@@ -1,57 +1,9 @@
-// import React, { useEffect, useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
-// import api from '../../utils/api';
 
-// const Subscriptions = () => {
-//   const [plans, setPlans] = useState([]);
-//   const navigate = useNavigate();
-
-//   useEffect(() => {
-//     // Assume duration is passed via query or context; for now, fetch all
-//     api.get('/subscriptions').then(res => setPlans(res.data.plans));
-//   }, []);
-
-//   const handlePurchase = async (planId) => {
-//     try {
-//       await api.post('/host-subscription/purchase', { planId });
-//       alert('Subscription purchased!');
-//       navigate('/dashboard');
-//     } catch (err) {
-//       alert('Error: ' + err.response?.data?.message);
-//     }
-//   };
-
-//   return (
-//     <div className="p-6">
-//       <h1 className="text-2xl font-bold mb-4">Choose a Subscription Plan</h1>
-//       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-//         {plans.map(plan => (
-//           <div key={plan._id} className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-//             <h3 className="text-lg font-bold">{plan.name}</h3>
-//             <p>₹{plan.price} for {plan.durationDays} days</p>
-//             <ul className="text-sm">
-//               {plan.features.map((feature, i) => <li key={i}>{feature}</li>)}
-//             </ul>
-//             <button
-//               onClick={() => handlePurchase(plan._id)}
-//               className="bg-blue-600 text-white px-4 py-2 rounded mt-2 hover:bg-blue-700"
-//             >
-//               Purchase
-//             </button>
-//           </div>
-//         ))}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Subscriptions;
-
-// src/pages/shared/Subscriptions.jsx - UPDATED
+// src/pages/shared/Subscriptions.jsx 
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
-import SubscriptionCard from '../../components/visitor/SubscriptionCard';
+import SubscriptionCard from '../../components/common/SubscriptionCard';
 import BackButton from '../../components/common/BackButton';
 import { Zap } from 'lucide-react';
 

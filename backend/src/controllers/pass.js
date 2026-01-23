@@ -1,4 +1,3 @@
-
 const Pass = require("../models/pass");
 const Booking = require("../models/booking");
 const mongoose = require("mongoose");
@@ -8,7 +7,7 @@ const cancelGuestPass = async (req, res) => {
   try {
     const { passId } = req.params;
     const visitorId = req.user.id;
-    const { reason } = req.body;
+    const { reason } = req.body || {}; 
 
     const pass = await Pass.findById(passId).populate("place").populate("bookedBy", "name email");
 
@@ -58,7 +57,7 @@ const cancelGuestPass = async (req, res) => {
     }
 
     // Send cancellation email to guest
-    if (pass.guest.email) {
+    if (pass.guest && pass.guest.email) {
       await sendCancellationEmail({
         to: pass.guest.email,
         subject: `Pass Cancelled - ${pass.place.name}`,
@@ -87,7 +86,7 @@ const cancelGuestPass = async (req, res) => {
     }
 
     // Send notification to booker if different from guest
-    if (pass.bookedBy.email && pass.bookedBy.email !== pass.guest.email) {
+    if (pass.bookedBy.email && pass.bookedBy.email !== (pass.guest ? pass.guest.email : '')) {
       await sendCancellationEmail({
         to: pass.bookedBy.email,
         subject: `Pass Cancelled - ${pass.place.name}`,
@@ -95,7 +94,7 @@ const cancelGuestPass = async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #dc2626;">Pass Cancelled</h2>
             <p>Dear ${pass.bookedBy.name},</p>
-            <p>A pass you booked for <strong>${pass.guest.name}</strong> at <strong>${pass.place.name}</strong> on <strong>${new Date(pass.visitDate).toDateString()}</strong> has been cancelled.</p>
+            <p>A pass you booked for <strong>${pass.guest ? pass.guest.name : 'Guest'}</strong> at <strong>${pass.place.name}</strong> on <strong>${new Date(pass.visitDate).toDateString()}</strong> has been cancelled.</p>
             
             ${refundAmount > 0 ? `
               <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -127,7 +126,7 @@ const cancelGuestPass = async (req, res) => {
 
 const cancelMultiplePasses = async (req, res) => {
   try {
-    const { passIds, reason } = req.body;
+    const { passIds, reason } = req.body || {}; // FIX: Add fallback for req.body
     const visitorId = req.user.id;
 
     if (!passIds || !passIds.length) {
@@ -148,8 +147,8 @@ const cancelMultiplePasses = async (req, res) => {
       });
     }
 
-    const bookingId = passes[0].bookingId.toString();
-    const sameBooking = passes.every(p => p.bookingId.toString() === bookingId);
+    const bookingId = passes[0].bookingId ? passes[0].bookingId.toString() : null;
+    const sameBooking = passes.every(p => p.bookingId && p.bookingId.toString() === bookingId);
     
     if (!sameBooking) {
       return res.status(400).json({ 
@@ -190,7 +189,7 @@ const cancelMultiplePasses = async (req, res) => {
       cancelledPasses.push(pass);
 
       // Send individual cancellation emails
-      if (pass.guest.email) {
+      if (pass.guest && pass.guest.email) {
         await sendCancellationEmail({
           to: pass.guest.email,
           subject: `Pass Cancelled - ${pass.place.name}`,
@@ -220,7 +219,7 @@ const cancelMultiplePasses = async (req, res) => {
       const passDetails = cancelledPasses
         .map(p => `
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 10px;">${p.guest.name}</td>
+            <td style="padding: 10px;">${p.guest ? p.guest.name : 'N/A'}</td>
             <td style="padding: 10px;">${p.place.name}</td>
             <td style="padding: 10px;">${new Date(p.visitDate).toDateString()}</td>
             <td style="padding: 10px;">₹${p.refundAmount || 0}</td>

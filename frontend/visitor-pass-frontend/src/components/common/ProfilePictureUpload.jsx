@@ -1,8 +1,8 @@
-// src/components/common/ProfilePictureUpload.jsx
+  // src/components/common/ProfilePictureUpload.jsx - FIXED
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, User } from 'lucide-react';
 
-const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose }) => {
+const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [preview, setPreview] = useState(currentImage || null);
   const fileInputRef = useRef(null);
@@ -27,6 +27,10 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose }) => {
 
   const handleSetImage = async () => {
     if (preview) {
+      // Save to localStorage with user-specific key
+      const storageKey = `profile_picture_${userId}`;
+      localStorage.setItem(storageKey, preview);
+      
       await onImageUpdate(preview);
       onClose();
     }
@@ -80,11 +84,12 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose }) => {
           onChange={handleFileSelect}
           className="hidden"
         />
+        {/* FIX: Changed capture attribute for proper camera access */}
         <input
           ref={cameraInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
+          capture="user"
           onChange={handleFileSelect}
           className="hidden"
         />

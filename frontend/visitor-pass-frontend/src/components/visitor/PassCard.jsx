@@ -1,8 +1,7 @@
-// src/components/visitor/PassCard.jsx
 import React from 'react';
-import { Calendar, MapPin, User, QrCode, CheckCircle } from 'lucide-react';
+import { Calendar, MapPin, User, QrCode, CheckCircle, X } from 'lucide-react';
 
-const PassCard = ({ pass }) => {
+const PassCard = ({ pass, onCancel }) => {  // Added onCancel prop
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     return new Date(dateStr).toLocaleDateString('en-US', { 
@@ -70,6 +69,19 @@ const PassCard = ({ pass }) => {
           <span className="text-sm font-medium">
             Checked in at {new Date(pass.checkInTime).toLocaleTimeString()}
           </span>
+        </div>
+      )}
+
+      {/* Added Cancel Button */}
+      {onCancel && pass.status !== 'CANCELLED' && (
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => onCancel(pass)}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center gap-2"
+          >
+            <X className="w-4 h-4" />
+            Cancel Pass
+          </button>
         </div>
       )}
     </div>

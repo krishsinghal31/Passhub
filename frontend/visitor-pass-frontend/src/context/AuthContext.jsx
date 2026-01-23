@@ -9,36 +9,49 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Verify token and get user info
-      api.get('/auth/me')
-        .then(res => {
-          if (res.data.success) {
-            setUser(res.data.user);
-          } else {
-            localStorage.removeItem('token');
-          }
-        })
-        .catch(() => {
+    const verifyAuth = async () => {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await api.get('/auth/me');
+        if (res.data.success) {
+          setUser({
+            id: res.data.user._id || res.data.user.id,
+            name: res.data.user.name,
+            email: res.data.user.email,
+            role: res.data.user.role,
+            subscription: res.data.user.subscription || { isActive: false }
+          });
+        } else {
           localStorage.removeItem('token');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Auth verification failed:', error);
+        localStorage.removeItem('token');
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyAuth();
   }, []);
 
   const login = async (email, password) => {
     try {
       const response = await api.post('/auth/login', { email, password });
       if (response.data.success) {
-        const { token, role, name, email: userEmail, subscription } = response.data;
+        const { token, role, name, email: userEmail, subscription, id, userId } = response.data;
         localStorage.setItem('token', token);
         
-        // ✅ Extract user ID from token or response
         const userData = { 
-          id: response.data.id || response.data.userId || 'temp', // ✅ Get ID from response
+          id: id || userId,
           role, 
           name, 
           email: userEmail,
@@ -62,7 +75,6 @@ export const AuthProvider = ({ children }) => {
         const { token, user: newUser } = response.data;
         localStorage.setItem('token', token);
         
-        // ✅ Ensure user has ID
         const userData = {
           ...newUser,
           id: newUser._id || newUser.id

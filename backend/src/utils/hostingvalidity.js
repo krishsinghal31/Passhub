@@ -1,3 +1,4 @@
+// backend/src/utils/hostingvalidity.js
 exports.isHostingActive = (place) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);

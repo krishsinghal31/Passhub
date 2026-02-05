@@ -1,4 +1,4 @@
-// src/components/common/Footer.jsx - COMPLETE VERSION
+// src/components/common/Footer.jsx 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
@@ -7,7 +7,7 @@ const Footer = () => {
   const navigate = useNavigate();
 
   const handleCall = () => {
-    window.location.href = 'tel:+911234567890'; // Replace with actual number
+    window.location.href = 'tel:+919351569865'; 
   };
 
   const handleEmail = () => {

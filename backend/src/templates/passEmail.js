@@ -1,4 +1,4 @@
-// backend/templates/passEmail.js - COMPLETE WITH QR CODE
+// backend/templates/passEmail.js 
 
 exports.passEmailTemplate = ({ guest, place, visitDate, passes }) => {
   const formatDate = (date) => {
@@ -56,21 +56,24 @@ exports.passEmailTemplate = ({ guest, place, visitDate, passes }) => {
       </div>
 
       ${pass.qrImage ? `
-        <div style="background: white; padding: 25px; border-radius: 10px; text-align: center;">
-          <p style="margin: 0 0 15px 0; color: #6B7280; font-size: 14px; font-weight: bold;">SCAN THIS QR CODE AT ENTRANCE</p>
-          <div style="background: white; display: inline-block; padding: 15px; border: 3px solid #4F46E5; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-            <img src="${pass.qrImage}" alt="QR Code for ${pass.guest.name}" style="width: 250px; height: 250px; display: block;" />
-          </div>
-          <p style="margin: 15px 0 0 0; color: #EF4444; font-weight: bold; font-size: 13px;">⚠️ Present this QR code at the event entrance</p>
-          <p style="margin: 5px 0 0 0; color: #6B7280; font-size: 12px;">Do not share this QR code with others</p>
-        </div>
-      ` : `
-        <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; border-left: 4px solid #F59E0B;">
-          <p style="margin: 0; color: #92400E; font-size: 14px;">
-            <strong>⏳ Payment Pending:</strong> Your QR code will be generated after payment confirmation.
-          </p>
-        </div>
-      `}
+  <div style="background: white; padding: 25px; border-radius: 10px; text-align: center;">
+    <p style="margin: 0 0 15px 0; color: #6B7280; font-size: 14px; font-weight: bold;">SCAN THIS QR CODE AT ENTRANCE</p>
+    <div style="background: white; display: inline-block; padding: 15px; border: 3px solid #4F46E5; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+      <img 
+        src="${pass.qrImage && pass.qrImage.includes('data:') ? `cid:qr-${pass._id}` : pass.qrImage}" 
+        alt="QR Code" 
+        style="width: 250px; height: 250px; display: block; margin: 0 auto; border: 4px solid #ffffff;" 
+        width="250" 
+        height="250"
+      />
+    </div>
+    <p style="margin: 15px 0 0 0; color: #EF4444; font-weight: bold; font-size: 13px;">⚠️ Present this QR code at the event entrance</p>
+  </div>
+` : `
+  <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; border-left: 4px solid #F59E0B; text-align: center;">
+     <p style="margin: 0; color: #92400E; font-size: 14px;"><strong>⏳ Processing:</strong> Your QR code is being generated.</p>
+  </div>
+`}
     </div>
   `).join('');
 

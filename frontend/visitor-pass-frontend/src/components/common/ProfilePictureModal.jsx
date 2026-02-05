@@ -1,4 +1,4 @@
-// src/components/common/ProfilePictureUpload.jsx - FIXED VERSION
+// src/components/common/ProfilePictureUpload.jsx 
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, User } from 'lucide-react';
 

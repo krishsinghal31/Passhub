@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/common/PageWrapper.jsx
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 

@@ -1,3 +1,4 @@
+// controllers/pass.js
 const Pass = require("../models/pass");
 const Booking = require("../models/booking");
 const mongoose = require("mongoose");
@@ -126,7 +127,7 @@ const cancelGuestPass = async (req, res) => {
 
 const cancelMultiplePasses = async (req, res) => {
   try {
-    const { passIds, reason } = req.body || {}; // FIX: Add fallback for req.body
+    const { passIds, reason } = req.body || {}; 
     const visitorId = req.user.id;
 
     if (!passIds || !passIds.length) {

@@ -36,7 +36,7 @@ router.put("/places/:placeId/details-notify", authMiddleware, isPlaceHost, hostC
 router.post("/places/:placeId/cancel", authMiddleware, isPlaceHost, hostController.cancelMyEvent);
 
 // Security management
-router.post("/places/:placeId/invite-security", authMiddleware, isPlaceHost, hostController.inviteSecurity);
+router.post("/assign-security", authMiddleware, hostController.assignSecurity);
 router.delete("/places/:placeId/security/:securityId", authMiddleware, isPlaceHost, hostController.removeSecurity);
 
 // ✅ NEW: Get security for place

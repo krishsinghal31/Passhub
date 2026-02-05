@@ -1,4 +1,4 @@
-
+// src/models/pass.js
 const mongoose = require("mongoose");
 
 const passSchema = new mongoose.Schema(

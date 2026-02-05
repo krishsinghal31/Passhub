@@ -1,3 +1,4 @@
+// controllers/place.js
 const Place = require("../models/place");
 const Pass = require("../models/pass");
 

@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/admin/TrafficChart.jsx
 import React from 'react';
 import { Line } from 'react-chartjs-2';
 

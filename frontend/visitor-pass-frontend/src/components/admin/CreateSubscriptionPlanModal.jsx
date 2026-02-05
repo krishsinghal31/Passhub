@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/admin/CreateSubscriptionPlanModal.jsx
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import api from '../../utils/api';

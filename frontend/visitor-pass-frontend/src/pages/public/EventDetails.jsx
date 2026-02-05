@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import { Shield, X, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { Shield, X, Lock, Mail, Eye, EyeOff, MapPin, Calendar, Users, IndianRupee, Info, ArrowRight } from 'lucide-react';
+import PageWrapper from '../../components/common/PageWrapper';
 
 const EventDetails = () => {
   const { placeId } = useParams();
@@ -23,14 +24,11 @@ const EventDetails = () => {
         }
       } catch (error) {
         console.error('Error fetching place:', error);
-        alert('Error loading event details');
       } finally {
         setLoading(false);
       }
     };
-    if (placeId) {
-      fetchPlace();
-    }
+    if (placeId) fetchPlace();
   }, [placeId]);
 
   const handleSecurityLogin = async (e) => {
@@ -44,239 +42,209 @@ const EventDetails = () => {
       });
       
       if (res.data.success) {
-        // Store security token separately
         localStorage.setItem('securityToken', res.data.token);
         localStorage.setItem('securityId', res.data.security.id);
-        localStorage.setItem('securityEmail', res.data.security.email);
         
-        // Navigate to security dashboard
-        navigate('/security/dashboard');
+        // Check if status is PENDING to force password change
+        if (res.data.mustChangePassword) {
+          navigate(`/security/change-password?id=${res.data.security.id}`);
+        } else {
+          navigate('/security/dashboard');
+        }
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || 'Invalid credentials or not assigned to this event'));
+      alert(error.response?.data?.message || 'Invalid credentials or not assigned to this event');
     } finally {
       setLoginLoading(false);
     }
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600"></div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
   );
   
-  if (!event) return <div className="p-6 text-center">Event not found</div>;
+  if (!event) return <div className="p-20 text-center font-bold text-slate-500">Event not found</div>;
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
     });
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4">{event.name}</h1>
-      {event.image && (
+    <PageWrapper className="min-h-screen bg-white pb-20">
+      {/* HERO SECTION */}
+      <div className="relative h-[50vh] w-full overflow-hidden">
         <img
-          src={event.image}
+          src={event.image || '/qr-placeholder.png'}
           alt={event.name}
-          className="w-full h-96 object-cover rounded-lg mb-4"
+          className="w-full h-full object-cover"
           onError={(e) => { e.target.src = '/qr-placeholder.png'; }}
         />
-      )}
-      
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-4">
-        <p className="text-gray-700 dark:text-gray-300 mb-4">
-          {event.description || `Join us for an amazing event at ${event.name}!`}
-        </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="font-semibold">Location:</p>
-            <p className="text-gray-600 dark:text-gray-400">{event.location}</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 w-full p-8 md:p-16">
+          <div className="max-w-7xl mx-auto">
+            <span className="bg-indigo-600 text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full mb-4 inline-block">
+              {event.isBookingEnabled ? 'Live Event' : 'Closed'}
+            </span>
+            <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-4">{event.name}</h1>
+            <div className="flex flex-wrap gap-6 text-white/90 font-medium">
+              <span className="flex items-center gap-2"><MapPin size={18} className="text-indigo-400" /> {event.location}</span>
+              <span className="flex items-center gap-2"><Calendar size={18} className="text-indigo-400" /> {formatDate(event.eventDates?.start)}</span>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-12 mt-12">
+        {/* LEFT: CONTENT */}
+        <div className="lg:col-span-2 space-y-10">
           <div>
-            <p className="font-semibold">Price:</p>
-            <p className="text-gray-600 dark:text-gray-400">
-              ₹{event.price} {event.price === 0 && <span className="text-green-600">(Free Event)</span>}
+            <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">About the Event</h3>
+            <p className="text-slate-600 leading-relaxed text-lg">
+              {event.description || `Experience an exclusive gathering at ${event.name}. This event features top-tier facilities and a seamless entry process via our digital pass system.`}
             </p>
           </div>
-          <div>
-            <p className="font-semibold">Start Date:</p>
-            <p className="text-gray-600 dark:text-gray-400">{formatDate(event.eventDates?.start)}</p>
-          </div>
-          <div>
-            <p className="font-semibold">End Date:</p>
-            <p className="text-gray-600 dark:text-gray-400">{formatDate(event.eventDates?.end)}</p>
-          </div>
-          <div>
-            <p className="font-semibold">Capacity:</p>
-            <p className="text-gray-600 dark:text-gray-400">
-              {event.remainingCapacity || 0} / {event.dailyCapacity} seats available
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold">Booking Status:</p>
-            <p className={event.isBookingEnabled ? 'text-green-600' : 'text-red-600'}>
-              {event.isBookingEnabled ? 'Open for Booking' : 'Booking Closed'}
-            </p>
+
+          <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100">
+            <h3 className="text-xl font-black text-slate-800 mb-6 tracking-tight">Refund & Entry Policy</h3>
+            {event.refundPolicy?.isRefundable ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Before Visit</p>
+                  <p className="text-2xl font-black text-indigo-600">{event.refundPolicy.beforeVisitPercent}% Refund</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Same Day</p>
+                  <p className="text-2xl font-black text-indigo-600">{event.refundPolicy.sameDayPercent}% Refund</p>
+                </div>
+                <p className="col-span-full text-sm text-slate-500 italic">{event.refundPolicy.description}</p>
+              </div>
+            ) : (
+              <p className="text-slate-500">Tickets for this event are non-refundable.</p>
+            )}
           </div>
         </div>
 
-        {event.refundPolicy && (
-          <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded">
-            <p className="font-semibold mb-2">Refund Policy:</p>
-            {event.refundPolicy.isRefundable ? (
-              <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300">
-                <li>Before visit: {event.refundPolicy.beforeVisitPercent}% refund</li>
-                <li>Same day: {event.refundPolicy.sameDayPercent}% refund</li>
-                {event.refundPolicy.description && <li className="mt-2">{event.refundPolicy.description}</li>}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-700 dark:text-gray-300">No refunds available for this event.</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-4">
-        {event.isBookingEnabled && (
-          <button
-            onClick={() => navigate(`/book/${placeId}`)}
-            className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg"
-          >
-            Book Now
-          </button>
-        )}
-        
-        <button
-          onClick={() => setShowSecurityModal(true)}
-          className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-lg"
-        >
-          <Shield className="w-5 h-5" />
-          Enter as Security
-        </button>
-      </div>
-
-      {/* Security Login Modal */}
-      {showSecurityModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center">
-                  <Shield className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-800">Security Login</h3>
-                  <p className="text-sm text-gray-500">{event.name}</p>
-                </div>
+        {/* RIGHT: BOOKING CARD */}
+        <div className="relative">
+          <div className="sticky top-24 bg-white rounded-[2.5rem] shadow-2xl shadow-indigo-100 p-8 border border-slate-100 space-y-6">
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ticket Price</p>
+                <h4 className="text-4xl font-black text-slate-800 flex items-center gap-1">
+                   <IndianRupee size={28} /> {event.price}
+                </h4>
               </div>
+              <div className="text-right">
+                <p className="text-[10px] font-black uppercase text-indigo-600 tracking-widest mb-1">Availability</p>
+                <p className="font-bold text-slate-700">{event.remainingCapacity} Slots Left</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
               <button
-                onClick={() => {
-                  setShowSecurityModal(false);
-                  setSecurityForm({ email: '', password: '' });
-                  setShowPassword(false);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={!event.isBookingEnabled}
+                onClick={() => navigate(`/book/${placeId}`)}
+                className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2
+                  ${event.isBookingEnabled ? 'bg-indigo-600 text-white hover:bg-slate-900 shadow-xl shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
               >
-                <X className="w-6 h-6 text-gray-600" />
+                {event.isBookingEnabled ? (
+                  <>Secure Your Pass <ArrowRight size={18} /></>
+                ) : 'Booking Closed'}
+              </button>
+
+              {/* STAFF ENTRY BUTTON */}
+              <button
+                onClick={() => setShowSecurityModal(true)}
+                className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest border-2 border-slate-900 text-slate-900 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+              >
+                <Shield size={18} /> Staff Entry
               </button>
             </div>
 
-            <form onSubmit={handleSecurityLogin} className="space-y-6">
+            <div className="pt-4 border-t border-slate-100">
+               <div className="flex items-center gap-3 text-slate-500">
+                 <Info size={16} />
+                 <p className="text-[11px] font-medium leading-tight">Digital QR pass will be sent to your email after successful payment.</p>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECURITY MODAL */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 relative animate-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setShowSecurityModal(false)}
+              className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full text-slate-400"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Shield size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800">Security Access</h3>
+              <p className="text-slate-500 text-sm font-medium">Verify credentials for {event.name}</p>
+            </div>
+
+            <form onSubmit={handleSecurityLogin} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <div className="flex items-center border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500">
-                  <Mail className="w-5 h-5 text-gray-400 ml-3" />
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 ml-1">Staff Email</label>
+                <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-indigo-500 transition-all">
+                  <Mail className="w-5 h-5 text-slate-400 ml-4" />
                   <input
                     type="email"
-                    value={securityForm.email}
-                    onChange={(e) => setSecurityForm({ ...securityForm, email: e.target.value })}
-                    className="w-full p-3 pl-3 bg-transparent focus:outline-none"
-                    placeholder="your.email@example.com"
                     required
+                    className="w-full p-4 pl-3 bg-transparent outline-none font-bold text-slate-700"
+                    placeholder="name@staff.com"
+                    value={securityForm.email}
+                    onChange={(e) => setSecurityForm({...securityForm, email: e.target.value})}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="flex items-center border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500">
-                    <Lock className="w-5 h-5 text-gray-400 ml-3" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={securityForm.password}
-                      onChange={(e) => setSecurityForm({ ...securityForm, password: e.target.value })}
-                      className="w-full p-3 pl-3 pr-12 bg-transparent focus:outline-none"
-                      placeholder="Enter your 10-digit password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 p-1 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <Eye className="w-5 h-5 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 ml-1">10-Digit Password</label>
+                <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-indigo-500 transition-all relative">
+                  <Lock className="w-5 h-5 text-slate-400 ml-4" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    className="w-full p-4 pl-3 bg-transparent outline-none font-bold text-slate-700 pr-12"
+                    placeholder="••••••••"
+                    value={securityForm.password}
+                    onChange={(e) => setSecurityForm({...securityForm, password: e.target.value})}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 text-slate-400 hover:text-indigo-600"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-xs text-blue-800">
-                  <strong>ℹ️ Note:</strong> If you're assigned as security for this event, you should have received login credentials via email.
-                </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loginLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all disabled:opacity-50"
               >
-                {loginLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-5 h-5" />
-                    Login as Security
-                  </>
-                )}
+                {loginLoading ? 'Authenticating...' : 'Enter Dashboard'}
               </button>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-xs text-gray-500">
-                Not assigned to this event?{' '}
-                <button
-                  onClick={() => setShowSecurityModal(false)}
-                  className="text-green-600 hover:text-green-700 font-semibold"
-                >
-                  Cancel
-                </button>
-              </p>
-            </div>
           </div>
         </div>
       )}
-    </div>
+    </PageWrapper>
   );
 };
 

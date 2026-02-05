@@ -1,26 +1,15 @@
+// backend/src/services/qr.js
 const QRCode = require("qrcode");
 
 exports.generateQR = async (payload) => {
   try {
-    
     const qrData = `${payload.passId}|${payload.qrToken}`;
-    
     const qrImage = await QRCode.toDataURL(qrData, {
-      errorCorrectionLevel: 'M',  // Medium error correction (25% recovery)
-      type: 'image/png',           // PNG format
-      quality: 0.92,               // High quality
-      margin: 1,                   // Minimal margin (1 module)
-      width: 300,                  // 300x300 pixels
-      color: {
-        dark: '#000000',           // Black QR code
-        light: '#FFFFFF'           // White background
-      }
+      width: 300,
+      margin: 1
     });
     
-    // Log success and size
-    const imageSizeKB = (qrImage.length * 0.75 / 1024).toFixed(2);
-    return qrImage;
-    
+    return qrImage; 
   } catch (error) {
     throw new Error("Failed to generate QR code");
   }

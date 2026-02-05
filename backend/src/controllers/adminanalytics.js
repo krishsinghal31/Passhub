@@ -1,29 +1,52 @@
+// backend/src/controllers/adminanalytics.js
 const ScanLog = require("../models/scanlog");
 const Pass = require("../models/pass");
 const Booking = require("../models/booking");
 const mongoose = require("mongoose");
 
+// exports.getPeakActivity = async (req, res) => {
+//   try {
+//     const data = await ScanLog.aggregate([
+//       {
+//         $group: {
+//           _id: { $hour: "$scannedAt" },
+//           count: { $sum: 1 }
+//         }
+//       },
+//       { $sort: { "_id": 1 } }
+//     ]);
+
+//     res.json({ 
+//       success: true,
+//       data 
+//     });
+//   } catch (error) {
+//     res.status(500).json({ 
+//       success: false,
+//       message: error.message 
+//     });
+//   }
+// };
 exports.getPeakActivity = async (req, res) => {
   try {
     const data = await ScanLog.aggregate([
       {
+        $project: {
+          hour: { $hour: { $toDate: "$scannedAt" } } 
+        }
+      },
+      {
         $group: {
-          _id: { $hour: "$scannedAt" },
+          _id: "$hour",
           count: { $sum: 1 }
         }
       },
       { $sort: { "_id": 1 } }
     ]);
 
-    res.json({ 
-      success: true,
-      data 
-    });
+    res.json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: error.message 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

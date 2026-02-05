@@ -1,3 +1,4 @@
+// backend/src/services/admincancelmail.js
 const { sendPassEmail } = require("./email");
 
 exports.sendBulkCancellationMail = async ({ to, placeName, visitDate, reason }) => {

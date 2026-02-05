@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/security/StatsCard.jsx
 import React from 'react';
 
 const StatsCard = ({ title, value }) => (

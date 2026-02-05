@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/visitor/RefundPolicyModal.jsx
 import React from 'react';
 
 const RefundPolicyModal = ({ policy, onClose }) => (

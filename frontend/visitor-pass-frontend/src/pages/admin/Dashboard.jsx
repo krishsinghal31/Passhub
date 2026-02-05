@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { Users, Activity, UserCog, BarChart3, UserPlus, Calendar } from 'lucide-react';
+import { Users, Activity, UserCog, BarChart3, UserPlus, Calendar, CreditCard } from 'lucide-react';
 import api from '../../utils/api';
 import PageWrapper from '../../components/common/PageWrapper';
 import TabNavigation from '../../components/common/TabNavigation';
@@ -16,70 +16,129 @@ import SeatsStatusModal from '../../components/common/SeatsStatusModal';
 const AdminDashboard = () => {
   const { user, loading } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Data States
   const [users, setUsers] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [events, setEvents] = useState([]);
   const [hosts, setHosts] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    totalEvents: 0,
+    totalRevenue: 0,
+    activeSubscribers: 0
+  });
+
+  // UI States
   const [dataLoading, setDataLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
   const [showSeatsModal, setShowSeatsModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
-  // ✅ CRITICAL: Wait for auth to complete before rendering anything
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ CRITICAL: Redirect if not authenticated or not admin
-  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-    return <Navigate to="/login" replace />;
-  }
-
   useEffect(() => {
-    fetchData();
-  }, [activeTab]);
+    if (user && ['ADMIN', 'SUPER_ADMIN'].includes(user.role) && !loading) {
+      fetchData();
+    }
+  }, [activeTab, user, loading]);
 
   const fetchData = async () => {
     setDataLoading(true);
     try {
+      // 1. Always fetch high-level stats for the overview cards
+      try {
+        const statsRes = await api.get('/admin/stats');
+        if (statsRes.data.success && statsRes.data.stats) {
+          setStats(statsRes.data.stats);
+        } else {
+          console.error('Stats response invalid:', statsRes.data);
+        }
+      } catch (statsError) {
+        console.error('Stats fetch error:', statsError);
+        // Fallback: Calculate stats from users/events data
+        try {
+          const usersRes = await api.get('/admin/users');
+          const eventsRes = await api.get('/admin/events/upcoming');
+          if (usersRes.data.success) {
+            setStats(prev => ({
+              ...prev,
+              totalUsers: usersRes.data.users?.length || 0,
+              activeUsers: usersRes.data.users?.filter(u => u.isActive).length || 0
+            }));
+          }
+          if (eventsRes.data.success) {
+            setStats(prev => ({
+              ...prev,
+              totalEvents: eventsRes.data.events?.length || 0
+            }));
+          }
+        } catch (fallbackError) {
+          console.error('Fallback stats fetch error:', fallbackError);
+        }
+      }
+
+      // 2. Fetch Tab-Specific Data
       if (activeTab === 'overview' || activeTab === 'users') {
-        const usersRes = await api.get('/admin/users');
-        if (usersRes.data.success) {
-          setUsers(usersRes.data.users);
+        try {
+          const usersRes = await api.get('/admin/users');
+          if (usersRes.data.success) {
+            setUsers(usersRes.data.users || []);
+          } else {
+            console.error('Users fetch failed:', usersRes.data);
+          }
+        } catch (err) {
+          console.error('Error fetching users:', err);
         }
       }
 
       if (activeTab === 'admins' && user?.role === 'SUPER_ADMIN') {
-        const adminsRes = await api.get('/admin/users?role=ADMIN');
-        if (adminsRes.data.success) {
-          setAdmins(adminsRes.data.users);
+        try {
+          const adminsRes = await api.get('/admin/users?role=ADMIN');
+          if (adminsRes.data.success) {
+            setAdmins(adminsRes.data.users || []);
+          } else {
+            console.error('Admins fetch failed:', adminsRes.data);
+          }
+        } catch (err) {
+          console.error('Error fetching admins:', err);
         }
       }
 
       if (activeTab === 'events') {
-        const eventsRes = await api.get('/admin/events/upcoming');
-        if (eventsRes.data.success) {
-          setEvents(eventsRes.data.events);
+        try {
+          const eventsRes = await api.get('/admin/events/upcoming');
+          if (eventsRes.data.success) {
+            setEvents(eventsRes.data.events || []);
+          } else {
+            console.error('Events fetch failed:', eventsRes.data);
+          }
+        } catch (err) {
+          console.error('Error fetching events:', err);
         }
       }
 
       if (activeTab === 'hosts') {
-        const hostsRes = await api.get('/admin/hosts');
-        if (hostsRes.data.success) {
-          setHosts(hostsRes.data.hosts);
+        try {
+          const hostsRes = await api.get('/admin/hosts');
+          if (hostsRes.data.success) {
+            setHosts(hostsRes.data.hosts || []);
+          } else {
+            console.error('Hosts fetch failed:', hostsRes.data);
+          }
+        } catch (err) {
+          console.error('Error fetching hosts:', err);
         }
       }
 
-      if (activeTab === 'analytics') {
+      if (activeTab === 'plans' && user?.role === 'SUPER_ADMIN') {
+        const plansRes = await api.get('/admin/subscription-plans');
+        if (plansRes.data.success) setPlans(plansRes.data.plans || []);
+      }
+
+      if (activeTab === 'analytics' && user?.role === 'SUPER_ADMIN') {
         const [peakRes, trafficRes] = await Promise.all([
           api.get('/analytics/admin/peak-activity'),
           api.get('/analytics/admin/traffic-by-place')
@@ -90,7 +149,7 @@ const AdminDashboard = () => {
         });
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setDataLoading(false);
     }
@@ -109,18 +168,14 @@ const AdminDashboard = () => {
   };
 
   const handleToggleUser = async (userId, currentStatus) => {
-    try {
-      const action = currentStatus ? 'disable' : 'enable';
-      const confirmed = window.confirm(`Are you sure you want to ${action} this user?`);
-      
-      if (!confirmed) return;
+    const action = currentStatus ? 'disable' : 'enable';
+    if (!window.confirm(`Are you sure you want to ${action} this user?`)) return;
 
+    try {
       const res = await api.post(`/admin/users/${userId}/toggle`, {
         reason: `${action}d by admin`
       });
-      
       if (res.data.success) {
-        alert(`User ${action}d successfully`);
         fetchData();
       }
     } catch (error) {
@@ -133,147 +188,129 @@ const AdminDashboard = () => {
     setShowSeatsModal(true);
   };
 
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  );
+
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    return <Navigate to="/login" replace />;
+  }
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Activity },
-    { id: 'users', label: 'All Users', icon: Users, count: users.length },
-    { id: 'events', label: 'Events', icon: Calendar, count: events.length },
-    { id: 'hosts', label: 'Hosts', icon: UserCog, count: hosts.length },
+    { id: 'users', label: 'All Users', icon: Users, count: stats.totalUsers },
+    { id: 'events', label: 'Events', icon: Calendar, count: stats.totalEvents },
+    { id: 'hosts', label: 'Hosts', icon: UserCog },
     ...(user?.role === 'SUPER_ADMIN' ? [
       { id: 'admins', label: 'Admins', icon: UserCog, count: admins.length },
       { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-      { id: 'plans', label: 'Subscription Plans', icon: BarChart3 }
+      { id: 'plans', label: 'Plans', icon: CreditCard }
     ] : [])
   ];
 
   return (
-    <PageWrapper className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-8 px-6">
+    <PageWrapper className="min-h-screen bg-slate-50 py-8 px-6">
       <div className="max-w-7xl mx-auto">
+        
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'} Dashboard
-          </h1>
-          <p className="text-gray-600">Manage your platform and monitor activities</p>
+        <div className="mb-10 flex justify-between items-end">
+          <div>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">
+              {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'} Portal
+            </h1>
+            <p className="text-slate-500 font-medium">System-wide monitoring and management</p>
+          </div>
+          {user?.role === 'SUPER_ADMIN' && activeTab === 'admins' && (
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-slate-900 transition-all font-bold shadow-lg shadow-indigo-100"
+            >
+              <UserPlus size={18} /> Invite Admin
+            </button>
+          )}
         </div>
 
-        {/* Stats Cards (Overview) */}
-        {activeTab === 'overview' && (
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-              <Users className="w-10 h-10 mb-3 opacity-80" />
-              <p className="text-3xl font-bold mb-1">{users.length}</p>
-              <p className="text-blue-100">Total Users</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-              <Activity className="w-10 h-10 mb-3 opacity-80" />
-              <p className="text-3xl font-bold mb-1">
-                {users.filter(u => u.isActive).length}
-              </p>
-              <p className="text-green-100">Active Users</p>
-            </div>
-
-            {user?.role === 'SUPER_ADMIN' && (
-              <>
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-                  <UserCog className="w-10 h-10 mb-3 opacity-80" />
-                  <p className="text-3xl font-bold mb-1">{admins.length}</p>
-                  <p className="text-purple-100">Admins</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
-                  <BarChart3 className="w-10 h-10 mb-3 opacity-80" />
-                  <p className="text-3xl font-bold mb-1">Live</p>
-                  <p className="text-orange-100">Analytics</p>
-                </div>
-              </>
-            )}
+        {/* Stats Summary (Overview) */}
+        {/* {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <StatCard title="Total Users" value={stats.totalUsers} icon={<Users />} color="text-blue-600" bg="bg-blue-50" />
+            <StatCard title="Live Events" value={stats.totalEvents} icon={<Calendar />} color="text-emerald-600" bg="bg-emerald-50" />
+            <StatCard title="Active Subs" value={stats.activeSubscribers} icon={<Activity />} color="text-purple-600" bg="bg-purple-50" />
+            <StatCard title="Total Revenue" value={`₹${stats.totalRevenue}`} icon={<BarChart3 />} color="text-orange-600" bg="bg-orange-50" />
           </div>
-        )}
+        )} */}
+        // Find the "Stats Cards (Overview)" section and update the values to use the 'stats' state
+{activeTab === 'overview' && (
+  <div className="grid md:grid-cols-4 gap-6 mb-8">
+    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+      <Users className="w-10 h-10 mb-3 opacity-80" />
+      {/* ✅ CHANGE THIS: Use stats.totalUsers instead of users.length */}
+      <p className="text-3xl font-bold mb-1">{stats.totalUsers}</p>
+      <p className="text-blue-100">Total Users</p>
+    </div>
 
-        {/* Tab Navigation */}
+    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+      <Activity className="w-10 h-10 mb-3 opacity-80" />
+      {/* ✅ CHANGE THIS: Use stats.activeSubscribers or totalEvents */}
+      <p className="text-3xl font-bold mb-1">{stats.totalEvents}</p>
+      <p className="text-green-100">Live Events</p>
+    </div>
+
+    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+      <UserCog className="w-10 h-10 mb-3 opacity-80" />
+      <p className="text-3xl font-bold mb-1">{stats.activeSubscribers}</p>
+      <p className="text-purple-100">Active Subs</p>
+    </div>
+
+    <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
+      <BarChart3 className="w-10 h-10 mb-3 opacity-80" />
+      <p className="text-3xl font-bold mb-1">₹{stats.totalRevenue}</p>
+      <p className="text-orange-100">Revenue</p>
+    </div>
+  </div>
+)}
+
         <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {/* Data Loading State */}
-        {dataLoading && activeTab !== 'overview' && (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
-          </div>
-        )}
-
-        {/* Tab Content - Only show when not loading */}
-        {!dataLoading && (
-          <div className="space-y-6">
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
-              <div className="bg-white rounded-xl shadow-md p-8">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Quick Stats</h2>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="p-6 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-gray-600 mb-2">Total Users</p>
-                    <p className="text-3xl font-bold text-blue-600">{users.length}</p>
-                  </div>
-                  <div className="p-6 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-sm text-gray-600 mb-2">Active Users</p>
-                    <p className="text-3xl font-bold text-green-600">
-                      {users.filter(u => u.isActive).length}
-                    </p>
-                  </div>
-                  <div className="p-6 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm text-gray-600 mb-2">Disabled Users</p>
-                    <p className="text-3xl font-bold text-red-600">
-                      {users.filter(u => !u.isActive).length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Users Tab */}
-            {activeTab === 'users' && (
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">All Users</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
+        <div className="mt-8">
+          {dataLoading ? (
+            <div className="py-20 text-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div></div>
+          ) : (
+            <div className="animate-in fade-in duration-500">
+              
+              {/* Users List */}
+              {activeTab === 'users' && (
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Role</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">User</th>
+                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Role</th>
+                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-slate-50">
                       {users.map((u) => (
-                        <tr key={u._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-medium text-gray-800">{u.name}</div>
+                        <tr key={u._id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-8 py-5">
+                            <div className="font-bold text-slate-700">{u.name}</div>
+                            <div className="text-xs text-slate-400">{u.email}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">{u.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
-                              {u.role}
-                            </span>
+                          <td className="px-8 py-5">
+                            <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase">{u.role}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              u.isActive 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-red-100 text-red-700'
-                            }`}>
-                              {u.isActive ? 'Active' : 'Disabled'}
-                            </span>
+                          <td className="px-8 py-5">
+                            <span className={`w-2 h-2 rounded-full inline-block mr-2 ${u.isActive ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                            <span className="text-xs font-bold text-slate-600">{u.isActive ? 'Active' : 'Disabled'}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-8 py-5 text-right">
                             {u.role !== 'SUPER_ADMIN' && (
                               <button
                                 onClick={() => handleToggleUser(u._id, u.isActive)}
-                                className={`px-3 py-1 rounded-lg text-sm font-semibold transition-colors ${
-                                  u.isActive
-                                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                                    : 'bg-green-50 text-green-600 hover:bg-green-100'
-                                }`}
+                                className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${u.isActive ? 'text-red-500 hover:bg-red-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
                               >
                                 {u.isActive ? 'Disable' : 'Enable'}
                               </button>
@@ -284,168 +321,111 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Events Tab */}
-            {activeTab === 'events' && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Upcoming Events</h2>
-                {events.length > 0 ? (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {events.map((event) => (
-                      <AdminEventCard 
-                        key={event._id} 
-                        event={event} 
-                        onEventUpdate={fetchData}
-                        onSeatsStatus={handleSeatsStatus}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <p className="text-gray-500 text-lg">No upcoming events</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Hosts Tab */}
-            {activeTab === 'hosts' && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">All Hosts</h2>
-                {hosts.length > 0 ? (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {hosts.map((host) => (
-                      <HostCard key={host._id} host={host} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <p className="text-gray-500 text-lg">No hosts found</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Admins Tab */}
-            {activeTab === 'admins' && user?.role === 'SUPER_ADMIN' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Admin Management</h2>
-                  <button
-                    onClick={() => setShowInviteModal(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    Invite Admin
-                  </button>
+              {/* Events Grid */}
+              {activeTab === 'events' && (
+                <div className="grid md:grid-cols-3 gap-8">
+                  {events.map(event => (
+                    <AdminEventCard key={event._id} event={event} onEventUpdate={fetchData} onSeatsStatus={handleSeatsStatus} />
+                  ))}
                 </div>
+              )}
 
-                {admins.length > 0 ? (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {admins.map((admin) => (
-                      <AdminCard 
-                        key={admin._id} 
-                        admin={admin} 
-                        onDisable={handleDisableAdmin}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl shadow-md p-12 text-center">
-                    <p className="text-gray-500 text-lg mb-4">No admins yet</p>
-                    <button
-                      onClick={() => setShowInviteModal(true)}
-                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold"
-                    >
-                      Invite Admin
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Hosts List */}
+              {activeTab === 'hosts' && (
+                <div className="grid md:grid-cols-3 gap-8">
+                  {hosts.map(host => <HostCard key={host._id} host={host} />)}
+                </div>
+              )}
 
-            {/* Subscription Plans Tab */}
-            {activeTab === 'plans' && user?.role === 'SUPER_ADMIN' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Subscription Plans</h2>
-                  <button
+              {/* Admins View */}
+              {activeTab === 'admins' && (
+                <div className="grid md:grid-cols-3 gap-8">
+                  {admins.map(admin => <AdminCard key={admin._id} admin={admin} onDisable={handleDisableAdmin} />)}
+                </div>
+              )}
+
+              {/* Plans Tab */}
+              {activeTab === 'plans' && (
+                <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 text-center">
+                  <CreditCard className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                  <h3 className="text-xl font-black text-slate-800 mb-2">Plan Management</h3>
+                  <p className="text-slate-400 mb-8 max-w-sm mx-auto">Create and manage subscription tiers for hosts to publish events on the platform.</p>
+                  <button 
                     onClick={() => setShowCreatePlanModal(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg"
+                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all"
                   >
-                    <UserPlus className="w-5 h-5" />
-                    Create Plan
+                    + Create New Plan
                   </button>
                 </div>
+              )}
 
-                <div className="bg-white rounded-xl shadow-md p-6">
-                  <p className="text-gray-500 text-center py-8">Subscription plans management coming soon...</p>
-                </div>
-              </div>
-            )}
-
-            {/* Analytics Tab */}
-            {activeTab === 'analytics' && analytics && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-xl shadow-md p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Peak Activity Hours</h2>
-                  <div className="h-64 flex items-end justify-around gap-2">
-                    {analytics.peak.map((item, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center">
-                        <div 
-                          className="w-full bg-gradient-to-t from-indigo-500 to-purple-500 rounded-t-lg transition-all hover:from-indigo-600 hover:to-purple-600"
-                          style={{ height: `${(item.count / Math.max(...analytics.peak.map(a => a.count))) * 100}%` }}
-                        ></div>
-                        <p className="text-xs text-gray-600 mt-2">{item._id}:00</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-md p-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Traffic by Place</h2>
-                  <div className="space-y-3">
-                    {analytics.traffic.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-semibold text-gray-800">{item.placeName}</p>
-                          <p className="text-sm text-gray-600">{item.location}</p>
+              {/* Analytics Charts */}
+              {activeTab === 'analytics' && analytics && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                  <div className="bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
+                    <h3 className="text-xl font-black text-slate-800 mb-8">Peak Activity (Hourly)</h3>
+                    <div className="h-64 flex items-end justify-between gap-2">
+                      {analytics.peak.map((item, idx) => (
+                        <div key={idx} className="flex-1 flex flex-col items-center group">
+                          <div 
+                            className="w-full bg-slate-100 group-hover:bg-indigo-500 rounded-t-xl transition-all relative"
+                            style={{ height: `${(item.count / (Math.max(...analytics.peak.map(a => a.count)) || 1)) * 100}%` }}
+                          >
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-black opacity-0 group-hover:opacity-100 transition-opacity">{item.count}</span>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 mt-4">{item._id}:00</p>
                         </div>
-                        <span className="text-2xl font-bold text-indigo-600">{item.count}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
+                    <h3 className="text-xl font-black text-slate-800 mb-8">Top Venues by Traffic</h3>
+                    <div className="space-y-4">
+                      {analytics.traffic.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl">
+                          <div>
+                            <p className="font-black text-slate-700">{item.placeName}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.location}</p>
+                          </div>
+                          <span className="text-2xl font-black text-indigo-600">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      <InviteAdminModal
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        onSuccess={fetchData}
-      />
-
-      <CreateSubscriptionPlanModal
-        isOpen={showCreatePlanModal}
-        onClose={() => setShowCreatePlanModal(false)}
-        onSuccess={fetchData}
-      />
-
+      {/* Modals */}
+      <InviteAdminModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} onSuccess={fetchData} />
+      <CreateSubscriptionPlanModal isOpen={showCreatePlanModal} onClose={() => setShowCreatePlanModal(false)} onSuccess={fetchData} />
       {showSeatsModal && selectedEvent && (
-        <SeatsStatusModal
-          isOpen={showSeatsModal}
-          eventId={selectedEvent._id}
-          totalCapacity={selectedEvent.capacity}
-          onClose={() => setShowSeatsModal(false)}
+        <SeatsStatusModal 
+          isOpen={showSeatsModal} 
+          eventId={selectedEvent._id} 
+          totalCapacity={selectedEvent.capacity} 
+          onClose={() => setShowSeatsModal(false)} 
         />
       )}
     </PageWrapper>
   );
 };
+
+const StatCard = ({ title, value, icon, color, bg }) => (
+  <div className={`bg-white rounded-[2rem] p-8 shadow-xl border border-slate-100 flex items-center gap-6`}>
+    <div className={`p-4 rounded-2xl ${bg} ${color}`}>
+      {React.cloneElement(icon, { size: 28 })}
+    </div>
+    <div>
+      <p className="text-3xl font-black text-slate-800 tracking-tight">{value}</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
+    </div>
+  </div>
+);
 
 export default AdminDashboard;

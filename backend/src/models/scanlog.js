@@ -1,3 +1,4 @@
+// src/models/scanlog.js
 const mongoose = require("mongoose");
 
 const scanLogSchema = new mongoose.Schema(

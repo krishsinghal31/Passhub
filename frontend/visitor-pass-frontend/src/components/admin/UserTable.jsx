@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/admin/UserTable.jsx
 import React, { useEffect, useState } from 'react';
 import api from '../../utils/api';
 

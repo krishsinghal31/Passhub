@@ -104,6 +104,17 @@ const authMiddleware = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Check if it's SUPER_ADMIN (hardcoded login)
+    if (decoded.id === "SUPER_ADMIN" && decoded.role === "SUPER_ADMIN") {
+      req.user = {
+        id: "SUPER_ADMIN",
+        role: "SUPER_ADMIN",
+        email: process.env.SUPER_ADMIN_EMAIL || "admin@passhub.com",
+        name: "Super Admin"
+      };
+      return next();
+    }
+
     // Check if it's a security token or regular user token
     if (decoded.role === 'SECURITY') {
       // Security login

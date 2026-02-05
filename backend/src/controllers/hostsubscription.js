@@ -1,3 +1,4 @@
+// backend/src/controllers/hostsubscription.js
 const SubscriptionPlan = require("../models/subscriptionplan");
 const HostSubscription = require("../models/hostsubscription");
 const User = require("../models/user");
@@ -31,9 +32,7 @@ exports.purchaseSubscription = async (req, res) => {
     
     await user.save();
 
-    //  FREE PLAN - Activate immediately and send confirmation
     if (plan.price === 0) {
-      // Send confirmation email
       if (user.email) {
         try {
           await sendPassEmail({
@@ -92,7 +91,7 @@ exports.purchaseSubscription = async (req, res) => {
     });
   }
 };
-// Confirm subscription payment
+
 exports.confirmSubscriptionPayment = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -114,12 +113,10 @@ exports.confirmSubscriptionPayment = async (req, res) => {
       });
     }
 
-    // Update subscription status
     user.subscription.isActive = true;
     user.subscription.paymentStatus = 'PAID';
     await user.save();
 
-    // Send confirmation email
     if (user.email) {
       try {
         await sendPassEmail({

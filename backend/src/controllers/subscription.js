@@ -1,3 +1,4 @@
+// backend/src/controllers/subscription.js
 const SubscriptionPlan = require("../models/subscriptionplan");
 
 exports.createPlan = async (req, res) => {

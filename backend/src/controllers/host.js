@@ -1,10 +1,11 @@
+// backend/src/controllers/host.js
 const Place = require("../models/place");
 const Pass = require("../models/pass");
 const Security = require("../models/security");
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
-const { sendSecurityCredentials } = require("../services/email");
+const { sendSecurityCredentials,sendPassEmail } = require("../services/email");
 const { isHostingActive } = require("../utils/hostingvalidity");
 
 exports.createPlace = async (req, res) => {
@@ -270,41 +271,24 @@ exports.getPlaceDashboard = async (req, res) => {
 exports.editPlace = async (req, res) => {
   try {
     const { placeId } = req.params;
-    const { name, location, image, price, dailyCapacity, refundPolicy } = req.body;
-
     const place = await Place.findById(placeId);
 
-    if (!place) {
-      return res.status(404).json({ 
-        success: false,
-        message: "Place not found" 
+    if (!place) return res.status(404).json({ success: false, message: "Not found" });
+
+    // CRITICAL SECURITY CHECK
+    const isExpired = new Date(place.eventDates.end) < new Date();
+    const isCancelled = place.status === 'CANCELLED';
+
+    if (isExpired || isCancelled) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Updates are not allowed for completed or cancelled events." 
       });
     }
 
-    if (name) place.name = name;
-    if (location) place.location = location;
-    if (image) place.image = image;
-    if (price !== undefined) place.price = price;
-    if (dailyCapacity) place.dailyCapacity = dailyCapacity;
-    if (refundPolicy) {
-      place.refundPolicy = {
-        ...place.refundPolicy,
-        ...refundPolicy
-      };
-    }
-
-    await place.save();
-
-    res.json({ 
-      success: true,
-      message: "Place updated successfully",
-      place 
-    });
+    // ... proceed with update ...
   } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: error.message 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -461,59 +445,135 @@ exports.updateEventDates = async (req, res) => {
   }
 };
 
-exports.inviteSecurity = async (req, res) => {
-  try {
-    const { placeId } = req.params;
-    const { email } = req.body;
+// exports.inviteSecurity = async (req, res) => {
+//   try {
+//     const { placeId } = req.params;
+//     const { email, startDate, endDate } = req.body; 
 
-    const place = await Place.findById(placeId);
-    if (!place) {
-      return res.status(404).json({ success: false, message: "Place not found" });
-    }
+//     if (!startDate || !endDate) {
+//       return res.status(400).json({ success: false, message: "Assignment dates are required" });
+//     }
 
-    const existing = await Security.findOne({ 
-      email: email.toLowerCase(), 
-      place: placeId 
-    });
+//     const place = await Place.findById(placeId);
+//     if (!place) {
+//       return res.status(404).json({ success: false, message: "Place not found" });
+//     }
+
+//     const existing = await Security.findOne({ 
+//       email: email.toLowerCase(), 
+//       place: placeId 
+//     });
     
-    if (existing) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Security already assigned to this place" 
+//     if (existing) {
+//       return res.status(400).json({ success: false, message: "Security already assigned to this place" });
+//     }
+
+//     const tempPassword = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+//     const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+//     const security = await Security.create({
+//       email: email.toLowerCase(),
+//       passwordHash,
+//       place: placeId,
+//       assignedBy: req.user.id,
+//       assignmentPeriod: {
+//         start: new Date(startDate), 
+//         end: new Date(endDate)     
+//       },
+//       status: "PENDING",
+//       isActive: true
+//     });
+
+//     await sendSecurityCredentials({
+//       to: email,
+//       password: tempPassword,
+//       placeName: place.name,
+//       placeId: placeId
+//     });
+
+//     res.json({
+//       success: true,
+//       message: "Security assigned with custom duration",
+//       security: {
+//         id: security._id,
+//         email: security.email,
+//         status: security.status,
+//         period: security.assignmentPeriod
+//       }
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+exports.assignSecurity = async (req, res) => {
+  try {
+    const { email, name, placeId, assignmentPeriod } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    const place = await Place.findById(placeId);
+    if (!place) return res.status(404).json({ success: false, message: "Place not found" });
+
+    let user = await User.findOne({ email: normalizedEmail });
+    let tempPassword = null;
+    let isNewUser = false;
+
+    if (!user) {
+      isNewUser = true;
+      tempPassword = Math.random().toString(36).slice(-10);
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      
+      user = await User.create({
+        name: name,
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: 'VISITOR', 
+        status: 'PENDING'
       });
     }
 
-    // ✅ Generate 10-digit numeric password
-    const tempPassword = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-    const security = await Security.create({
-      email: email.toLowerCase(),
-      passwordHash,
+    await Security.create({
+      user: user._id,
+      email: normalizedEmail,
       place: placeId,
-      assignedBy: req.user.id,
-      status: "ACTIVE",
+      assignedBy: req.user.id, 
+      passwordHash: user.password, 
+      assignmentPeriod: {
+        start: new Date(assignmentPeriod.start),
+        end: new Date(assignmentPeriod.end)
+      },
+      status: 'ACCEPTED',
       isActive: true
     });
 
-    // Send email with credentials
-    await sendSecurityCredentials({
-      to: email,
-      password: tempPassword,
-      placeName: place.name,
-      placeId: placeId
+    if (isNewUser) {
+      await sendSecurityCredentials({
+        to: normalizedEmail,
+        password: tempPassword,
+        placeName: place.name
+      });
+    } else {
+      await sendPassEmail({
+        to: normalizedEmail,
+        subject: `New Staff Assignment: ${place.name}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2 style="color: #4f46e5;">New Assignment Received</h2>
+            <p>Hello ${user.name}, you have been assigned as security for <strong>${place.name}</strong>.</p>
+            <p>Log in to your dashboard and check the <strong>Work Tab</strong> to see your shift details.</p>
+          </div>
+        `
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: isNewUser ? "Staff account created and credentials emailed." : "Existing user notified of assignment.",
+      tempPassword: tempPassword 
     });
 
-    res.json({
-      success: true,
-      message: "Security assigned and credentials sent via email",
-      security: {
-        id: security._id,
-        email: security.email,
-        status: security.status
-      }
-    });
   } catch (error) {
+    console.error("Assignment Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

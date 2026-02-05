@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/common/Notification.jsx
 import React, { useEffect } from 'react';
 
 const Notification = ({ message, type, onClose }) => {

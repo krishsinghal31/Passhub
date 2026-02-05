@@ -1,3 +1,4 @@
+// controllers/payment.js
 const Pass = require("../models/pass");
 const Booking = require("../models/booking");
 const Place = require("../models/place");
@@ -10,10 +11,11 @@ exports.confirmPayment = async (req, res) => {
   try {
     const { bookingId } = req.body;
     const userId = req.user.id;
+    const passes = await Pass.find({ bookingId }).populate('place');
 
-    const passes = await Pass.find({ bookingId })
-      .populate("bookedBy", "name email")
-      .populate("place");
+    // const passes = await Pass.find({ bookingId })
+    //   .populate("bookedBy", "name email")
+    //   .populate("place");
 
     if (!passes.length) {
       return res.status(404).json({ 
@@ -82,9 +84,20 @@ exports.confirmPayment = async (req, res) => {
 
       passesWithQR.push(pass);
 
-      // ✅ FIXED: Send individual email to each guest with their QR
       if (pass.guest.email) {
         try {
+          // Convert base64 QR image to attachment
+          const attachments = [];
+          if (pass.qrImage && pass.qrImage.startsWith('data:image')) {
+            const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
+            attachments.push({
+              filename: `qr-pass-${pass._id}.png`,
+              content: base64Data,
+              encoding: 'base64',
+              cid: `qr-${pass._id}`
+            });
+          }
+          
           await sendPassEmail({
             to: pass.guest.email,
             subject: `Your Pass for ${place.name}`,
@@ -93,7 +106,8 @@ exports.confirmPayment = async (req, res) => {
               place,
               visitDate,
               passes: [pass] // Send only this guest's pass
-            })
+            }),
+            attachments: attachments
           });
           console.log(`✅ Pass email sent to: ${pass.guest.email}`);
         } catch (emailError) {
@@ -114,6 +128,19 @@ exports.confirmPayment = async (req, res) => {
     const visitorEmail = passes[0].bookedBy.email;
     if (visitorEmail) {
       try {
+        // Convert all QR images to attachments
+        const attachments = passesWithQR
+          .filter(p => p.qrImage && p.qrImage.startsWith('data:image'))
+          .map(pass => {
+            const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
+            return {
+              filename: `qr-pass-${pass._id}.png`,
+              content: base64Data,
+              encoding: 'base64',
+              cid: `qr-${pass._id}`
+            };
+          });
+        
         await sendPassEmail({
           to: visitorEmail,
           subject: `Payment Confirmed - ${place.name}`,
@@ -122,7 +149,8 @@ exports.confirmPayment = async (req, res) => {
             place,
             visitDate,
             passes: passesWithQR // Send all passes
-          })
+          }),
+          attachments: attachments
         });
         console.log(`✅ Summary email sent to: ${visitorEmail}`);
       } catch (emailError) {

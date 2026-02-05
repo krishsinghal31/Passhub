@@ -14,7 +14,6 @@ const Subscriptions = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get duration from state (passed from CreateEvent)
   const eventDuration = location.state?.eventDuration;
 
   useEffect(() => {
@@ -42,6 +41,7 @@ const Subscriptions = () => {
   };
 
   const handlePurchase = async (planId) => {
+    const { refreshUser } = useContext(AuthContext);
     setPurchasingPlanId(planId);
     try {
       const res = await api.post('/host-subscription/purchase', { 
@@ -51,7 +51,6 @@ const Subscriptions = () => {
       
       if (res.data.success) {
         if (res.data.subscription.paymentStatus === 'FREE') {
-          // Free plan - redirect to create event
           alert('Free subscription activated!');
           navigate('/create-event');
         } else {

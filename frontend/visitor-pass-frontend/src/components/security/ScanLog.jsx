@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/security/ScanLog.jsx
 import React from 'react';
 
 const ScanLog = ({ logs }) => (

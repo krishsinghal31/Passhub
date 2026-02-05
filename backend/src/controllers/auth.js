@@ -1,3 +1,4 @@
+// backend/src/controllers/auth.js
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
@@ -113,7 +114,6 @@ const loginUser = async(req,res)=>{
       });
     }
 
-    // ✅ Use comparePassword method
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).json({ 
@@ -157,6 +157,21 @@ const getMe = async (req, res) => {
   try {
     const userId = req.user.id; // From auth middleware
     
+    // Handle SUPER_ADMIN specially
+    if (userId === "SUPER_ADMIN") {
+      return res.json({
+        success: true,
+        user: {
+          id: "SUPER_ADMIN",
+          _id: "SUPER_ADMIN",
+          name: "Super Admin",
+          email: process.env.SUPER_ADMIN_EMAIL || "admin@passhub.com",
+          role: "SUPER_ADMIN",
+          subscription: { isActive: false }
+        }
+      });
+    }
+    
     const user = await User.findById(userId)
       .select('-password')
       .populate('subscription.planId');
@@ -199,8 +214,33 @@ const getMe = async (req, res) => {
   }
 };
 
+const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Current password incorrect" });
+    }
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    
+    if (user.status === 'PENDING') user.status = 'ACTIVE';
+    
+    await user.save();
+
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
+  updatePassword
 };

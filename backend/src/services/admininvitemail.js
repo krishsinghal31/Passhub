@@ -1,3 +1,4 @@
+// backend/src/services/admininvitemail.js
 const { sendPassEmail } = require("./email");
 
 exports.sendAdminInviteMail = async ({ email, tempPassword }) => {
@@ -14,7 +15,14 @@ exports.sendAdminInviteMail = async ({ email, tempPassword }) => {
 
       <p style="color: #dc2626;"><strong>Important:</strong> Please log in and change your password immediately after your first login.</p>
 
-      <p style="margin-top: 30px;">Best regards,<br/>Visitor Pass System</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth" 
+           style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Get Started
+        </a>
+      </div>
+
+      <p style="margin-top: 30px;">Best regards,<br/>PassHub Team</p>
     </div>
   `;
 

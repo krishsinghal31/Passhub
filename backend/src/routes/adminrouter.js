@@ -5,6 +5,7 @@ const adminController = require("../controllers/admin");
 const { adminAuth, superAdminAuth } = require("../middlewares/adminAuth");
 
 // Existing routes...
+router.get('/stats', adminAuth, adminController.getDashboardStats);
 router.get("/users", adminAuth, adminController.getAllUsers);
 router.get("/passes", adminAuth, adminController.getAllPasses);
 router.post("/invite-admin", superAdminAuth, adminController.inviteAdmin);

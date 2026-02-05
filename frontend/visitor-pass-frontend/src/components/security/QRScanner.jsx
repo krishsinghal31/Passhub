@@ -1,5 +1,6 @@
+// frontend/visitor-pass-frontend/src/components/security/QRScanner.jsx
 import React, { useEffect, useRef, useState } from 'react';
-import QrScanner from 'qr-scanner';  // Updated import
+import QrScanner from 'qr-scanner'; 
 
 const QRScanner = ({ onScan }) => {
   const videoRef = useRef(null);

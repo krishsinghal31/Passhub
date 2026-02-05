@@ -1,7 +1,8 @@
+// frontend/visitor-pass-frontend/src/components/visitor/PassCard.jsx
 import React from 'react';
 import { Calendar, MapPin, User, QrCode, CheckCircle, X } from 'lucide-react';
 
-const PassCard = ({ pass, onCancel }) => {  // Added onCancel prop
+const PassCard = ({ pass, onCancel }) => {  
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     return new Date(dateStr).toLocaleDateString('en-US', { 

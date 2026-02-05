@@ -1,3 +1,4 @@
+// backend/src/templates/subscriptionrelatedmail.js
 const SubscriptionPlan = require("../models/subscriptionplan");
 const User = require("../models/user");
 const { sendPassEmail } = require("../services/email");
@@ -9,7 +10,6 @@ exports.purchaseSubscription = async (req, res) => {
 
     console.log('📦 Subscription purchase request:', { userId, planId, startDate });
 
-    // Validate plan
     const plan = await SubscriptionPlan.findById(planId);
     if (!plan || !plan.isActive) {
       return res.status(400).json({ 
@@ -18,12 +18,10 @@ exports.purchaseSubscription = async (req, res) => {
       });
     }
 
-    // Calculate subscription dates
     const start = new Date(startDate);
     const end = new Date(start);
     end.setDate(end.getDate() + plan.durationDays);
 
-    // Get user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -32,9 +30,8 @@ exports.purchaseSubscription = async (req, res) => {
       });
     }
 
-    // Update user subscription
     user.subscription.planId = plan._id;
-    user.subscription.isActive = plan.price === 0; // Activate immediately for free plans
+    user.subscription.isActive = plan.price === 0; 
     user.subscription.startDate = start;
     user.subscription.endDate = end;
     user.subscription.amountPaid = plan.price;
@@ -42,9 +39,8 @@ exports.purchaseSubscription = async (req, res) => {
     
     await user.save();
 
-    console.log('✅ Subscription updated in database');
+    console.log('Subscription updated in database');
 
-    // ✅ FREE PLAN - Activate immediately and send confirmation
     if (plan.price === 0) {
       console.log('📧 Sending free subscription confirmation email...');
       
@@ -81,7 +77,6 @@ exports.purchaseSubscription = async (req, res) => {
       });
     }
 
-    // ✅ PAID PLAN - Send payment pending email
     console.log('📧 Sending payment pending email...');
     
     if (user.email) {
@@ -148,19 +143,16 @@ exports.confirmSubscriptionPayment = async (req, res) => {
       });
     }
 
-    // Activate subscription
     user.subscription.isActive = true;
     user.subscription.paymentStatus = 'PAID';
     await user.save();
 
     console.log('✅ Subscription activated');
 
-    // Calculate days remaining
     const now = new Date();
     const endDate = new Date(user.subscription.endDate);
     const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
 
-    // Send confirmation email
     if (user.email) {
       try {
         await sendPassEmail({

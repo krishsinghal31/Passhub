@@ -1,7 +1,7 @@
+// backend/src/controllers/public.js
 const Place = require("../models/place");
 const Pass = require("../models/pass");
 
-// Get all events for home page
 exports.getHomeEvents = async (req, res) => {
   try {
     const { city, category, date } = req.query;
@@ -22,7 +22,6 @@ exports.getHomeEvents = async (req, res) => {
       baseQuery["eventDates.end"] = { $gte: searchDate };
     }
 
-    // Featured events
     const featuredEvents = await Place.find({ 
       ...baseQuery, 
       featured: true 
@@ -31,13 +30,11 @@ exports.getHomeEvents = async (req, res) => {
       .limit(5)
       .sort({ "eventDates.start": 1 });
 
-    // Upcoming events (sorted by date)
     const upcomingEvents = await Place.find(baseQuery)
       .populate("host", "name email")
       .limit(20)
       .sort({ "eventDates.start": 1 });
 
-    // Popular events (by bookings)
     const popularEvents = await Place.aggregate([
       { $match: baseQuery },
       {
@@ -57,14 +54,11 @@ exports.getHomeEvents = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    // Populate host for popular events
-    //const Place = require("../models/place");
     const populatedPopularEvents = await Place.populate(popularEvents, {
       path: "host",
       select: "name email"
     });
 
-    // Get categories with counts
     const categories = await Place.aggregate([
       { $match: baseQuery },
       { 
@@ -77,7 +71,6 @@ exports.getHomeEvents = async (req, res) => {
       { $sort: { count: -1 } }
     ]);
 
-    // Enrich events with booking data
     const enrichEvent = async (event) => {
       const totalBookings = await Pass.countDocuments({
         place: event._id,
@@ -133,7 +126,6 @@ exports.getHomeEvents = async (req, res) => {
   }
 };
 
-// Get featured events only
 exports.getFeaturedEvents = async (req, res) => {
   try {
     const today = new Date();
@@ -185,7 +177,6 @@ exports.getFeaturedEvents = async (req, res) => {
   }
 };
 
-// Get categories
 exports.getCategories = async (req, res) => {
   try {
     const today = new Date();

@@ -1,103 +1,116 @@
-// src/context/AuthContext.jsx - UPDATED
-import React, { createContext, useState, useEffect } from 'react';
+// src/context/AuthContext.jsx 
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const verifyAuth = async () => {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+    const normalizeUser = (data) => {
+    const d = data.user || data; 
+    const userData = {
+        id: d._id || d.id || "SUPER_ADMIN",
+        name: d.name || "Super Admin",
+        email: d.email || process.env.SUPER_ADMIN_EMAIL || "admin@passhub.com",
+        role: d.role || "SUPER_ADMIN",
+        subscription: d.subscription || { isActive: false }
+    };
+    
+    // Only try to get profile picture if user has a valid ID (not SUPER_ADMIN string)
+    if (userData.id && userData.id !== "SUPER_ADMIN") {
+      const savedPic = localStorage.getItem(`profile_picture_${userData.id}`);
+      if (savedPic) userData.profilePicture = savedPic;
+    }
+    
+    return userData;
+   };
+//     const normalizeUser = (data) => {
+//         const userId = data.user?._id || data.user?.id || data.userId;
+//     const userData = {
+//         id: data.user?.id || data.user?._id || data.userId,
+//         name: data.user?.name,
+//         email: data.user?.email,
+//         role: data.role || data.user?.role,
+//         subscription: data.user?.subscription || {}
+//     };
 
-      try {
-        const res = await api.get('/auth/me');
-        if (res.data.success) {
-          setUser({
-            id: res.data.user._id || res.data.user.id,
-            name: res.data.user.name,
-            email: res.data.user.email,
-            role: res.data.user.role,
-            subscription: res.data.user.subscription || { isActive: false }
-          });
-        } else {
-          localStorage.removeItem('token');
-          setUser(null);
+//     const savedPic = localStorage.getItem(`profile_picture_${userData.id}`);
+//     if (savedPic) {
+//         userData.profilePicture = savedPic;
+//     }
+    
+//     return userData;
+// };
+
+    const verifyAuth = useCallback(async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setUser(null);
+            setLoading(false);
+            return;
         }
-      } catch (error) {
-        console.error('Auth verification failed:', error);
+
+        try {
+            const res = await api.get('/auth/me');
+            if (res.data.success && res.data.user) {
+                setUser(normalizeUser(res.data));
+            } else {
+                localStorage.removeItem('token');
+                setUser(null);
+            }
+        } catch (error) {
+            console.error('Auth verification error:', error);
+            // Only clear token if it's a 401/403 error, not network errors
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                localStorage.removeItem('token');
+                setUser(null);
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        verifyAuth();
+    }, [verifyAuth]);
+
+   const login = async (email, password) => {
+    try {
+        const response = await api.post('/auth/login', { 
+            email: email.trim().toLowerCase(), 
+            password 
+        });
+
+        if (response.data.success) {
+            localStorage.setItem('token', response.data.token);
+            
+            const userData = normalizeUser(response.data);
+            setUser(userData);
+            
+            return { success: true, role: userData.role };
+        }
+    } catch (error) {
+        console.error("Login Error Details:", error.response?.data);
+        throw error.response?.data || { message: 'Login failed' };
+    }
+};
+
+    const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('securityToken');
         setUser(null);
-      } finally {
-        setLoading(false);
-      }
     };
 
-    verifyAuth();
-  }, []);
+    const refreshUser = async () => {
+        await verifyAuth();
+    };
 
-  const login = async (email, password) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      if (response.data.success) {
-        const { token, role, name, email: userEmail, subscription, id, userId } = response.data;
-        localStorage.setItem('token', token);
-        
-        const userData = { 
-          id: id || userId,
-          role, 
-          name, 
-          email: userEmail,
-          subscription: subscription || { isActive: false }
-        };
-        
-        setUser(userData);
-        return { success: true, role };
-      }
-      throw new Error(response.data.message || 'Login failed');
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error.response?.data || { message: error.message };
-    }
-  };
-
-  const register = async (name, email, password) => {
-    try {
-      const response = await api.post('/auth/register', { name, email, password });
-      if (response.data.success) {
-        const { token, user: newUser } = response.data;
-        localStorage.setItem('token', token);
-        
-        const userData = {
-          ...newUser,
-          id: newUser._id || newUser.id
-        };
-        
-        setUser(userData);
-        return { success: true };
-      }
-      throw new Error(response.data.message || 'Registration failed');
-    } catch (error) {
-      console.error('Register error:', error);
-      throw error.response?.data || { message: error.message };
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={{ user, login, logout, loading, setUser, refreshUser }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
+

@@ -1,3 +1,5 @@
+// backend/src/services/email.js
+
 const nodemailer = require("nodemailer");
 const { user, password } = require("../config/mail");
 
@@ -9,19 +11,16 @@ const transporter = nodemailer.createTransport({
     user: user,
     pass: password
   },
-  pool: true, // Enable connection pooling
-  maxConnections: 5, // Max concurrent connections
-  maxMessages: 100, // Max messages per connection
-  rateDelta: 1000, // Minimum time between messages (1 second)
-  rateLimit: 5, // Max 5 messages per rateDelta
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  rateDelta: 1000,
+  rateLimit: 5,
   tls: {
-    rejectUnauthorized: false // Add if you're having SSL issues
-  },
-  debug: false, 
-  logger: false 
+    rejectUnauthorized: false
+  }
 });
 
-// Add connection verification
 transporter.verify((error, success) => {
   if (error) {
     console.error('❌ SMTP Connection Error:', error);
@@ -30,13 +29,16 @@ transporter.verify((error, success) => {
   }
 });
 
-exports.sendPassEmail = async ({ to, subject, html }) => {
+// --- DEFINE FUNCTIONS AS LOCAL CONSTANTS SO THEY CAN SEE EACH OTHER ---
+
+const sendPassEmail = async ({ to, subject, html, attachments = [] }) => {
   try {
     await transporter.sendMail({
-      from: `"Visitor Pass System" <${process.env.MAIL_USER || user}>`,
+      from: `"PassHub" <${process.env.MAIL_USER || user}>`,
       to,
       subject,
-      html
+      html,
+      attachments
     });
     console.log(`✅ Email sent to ${to}`);
   } catch (error) {
@@ -45,7 +47,7 @@ exports.sendPassEmail = async ({ to, subject, html }) => {
   }
 };
 
-exports.sendCancellationEmail = async ({ to, subject, html, type = 'visitor' }) => {
+const sendCancellationEmail = async ({ to, subject, html, type = 'visitor' }) => {
   try {
     if (!to) {
       console.log('⚠️ No recipient email provided for cancellation');
@@ -68,84 +70,34 @@ exports.sendCancellationEmail = async ({ to, subject, html, type = 'visitor' }) 
     return info;
   } catch (error) {
     console.error(`❌ Failed to send cancellation email to ${to}:`, error);
-    console.error('Full error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 };
 
-exports.sendBulkCancellationEmails = async (emails) => {
-  const results = [];
-  
-  for (const email of emails) {
-    try {
-      const info = await exports.sendCancellationEmail(email);
-      results.push({ email: email.to, success: true, messageId: info?.messageId });
-      
-      // Add delay between emails to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      results.push({ email: email.to, success: false, error: error.message });
-    }
-  }
-  
-  return results;
-};
-
-exports.sendSecurityCredentials = async ({ to, password, placeName, placeId }) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const loginLink = `${frontendUrl}/places/${placeId}`;
+const sendSecurityCredentials = async ({ to, password, placeName }) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
-      <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <h2 style="color: #4f46e5; margin-top: 0;">🔐 Security Assignment</h2>
-        <p style="font-size: 16px; color: #374151;">You have been assigned as <strong>Security Personnel</strong> for:</p>
-        <h3 style="color: #1f2937; background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center;">${placeName}</h3>
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden;">
+      <div style="background-color: #4f46e5; padding: 30px; text-align: center;">
+        <h2 style="color: white; margin: 0;">Staff Invitation</h2>
+      </div>
+      <div style="padding: 30px; color: #374151;">
+        <p>You have been assigned as Security for <strong>${placeName}</strong>.</p>
         
-        <div style="background-color: #eff6ff; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #4f46e5;">
-          <h4 style="margin-top: 0; color: #1e40af;">Your Login Credentials:</h4>
-          <p style="margin: 10px 0;"><strong>Email:</strong> ${to}</p>
-          <p style="margin: 10px 0;"><strong>Password:</strong></p>
-          <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; text-align: center; border: 2px dashed #4f46e5; margin-top: 10px;">
-            <code style="font-size: 24px; font-weight: bold; color: #4f46e5; letter-spacing: 2px;">${password}</code>
-          </div>
+        <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; margin: 20px 0; border: 2px dashed #4f46e5; text-align: center;">
+          <p style="margin: 0; font-size: 14px; color: #6b7280;">Your Temporary Password:</p>
+          <code style="font-size: 24px; font-weight: bold; color: #4f46e5; letter-spacing: 2px;">${password}</code>
         </div>
 
-        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 20px 0;">
-          <p style="margin: 0; font-size: 14px; color: #92400e;">
-            <strong>⚠️ Important:</strong> Please change your password after your first login for security.
-          </p>
-        </div>
-
-        <h4 style="color: #1f2937;">How to Login:</h4>
-        <ol style="color: #374151; line-height: 1.8;">
-          <li>Click the button below to go to the event page</li>
-          <li>Click on <strong>"Enter as Security"</strong> button</li>
-          <li>Login with your email and the password above</li>
-          <li>Change your password from the dashboard</li>
-        </ol>
-
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${loginLink}" style="
-            display: inline-block;
-            padding: 15px 40px;
-            background-color: #10b981;
-            color: #ffffff;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 16px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          ">
-            🔓 Go to Event Page
+        <div style="text-align: center; margin-top: 30px;">
+          <a href="${frontendUrl}" style="background-color: #10b981; color: white; padding: 16px 40px; text-decoration: none; border-radius: 12px; font-weight: bold; display: inline-block;">
+            Get Started / Sign In
           </a>
         </div>
-
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
         
-        <p style="font-size: 12px; color: #6b7280; text-align: center; margin-bottom: 0;">
-          If you did not expect this assignment, please contact the event organizer.<br>
-          This is an automated email from PassHub Event Management System.
+        <p style="font-size: 12px; color: #9ca3af; margin-top: 30px; text-align: center;">
+          Please log in and change your password immediately.
         </p>
       </div>
     </div>
@@ -153,7 +105,24 @@ exports.sendSecurityCredentials = async ({ to, password, placeName, placeId }) =
 
   await sendPassEmail({
     to,
-    subject: `🔐 Security Assignment – ${placeName}`,
+    subject: `Security Assignment: ${placeName}`,
     html
   });
+};
+
+exports.sendPassEmail = sendPassEmail;
+exports.sendCancellationEmail = sendCancellationEmail;
+exports.sendSecurityCredentials = sendSecurityCredentials;
+exports.sendBulkCancellationEmails = async (emails) => {
+  const results = [];
+  for (const email of emails) {
+    try {
+      const info = await sendCancellationEmail(email);
+      results.push({ email: email.to, success: true, messageId: info?.messageId });
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      results.push({ email: email.to, success: false, error: error.message });
+    }
+  }
+  return results;
 };

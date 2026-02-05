@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/visitor/AnalyticsChart.jsx
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
 

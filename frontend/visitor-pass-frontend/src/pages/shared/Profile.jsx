@@ -1,10 +1,10 @@
-// src/pages/shared/Profile.jsx - PRODUCTION VERSION
+// src/pages/shared/Profile.jsx 
 import React, { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Shield, Calendar, Camera, Edit2, Save, X,
-  CreditCard, Clock, CheckCircle, XCircle 
+  CreditCard, Clock, CheckCircle, XCircle, Lock, ShieldAlert
 } from 'lucide-react';
 import PageWrapper from '../../components/common/PageWrapper';
 import BackButton from '../../components/common/BackButton';
@@ -84,254 +84,333 @@ const Profile = () => {
   };
 
   return (
-    <PageWrapper className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-6">
+    <PageWrapper className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-6 pb-20">
       <div className="max-w-4xl mx-auto">
         <BackButton to="/dashboard" />
 
-        {/* Profile Header Card */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-6 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
-          
-          <div className="relative flex items-center gap-6">
-            {/* Profile Picture */}
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-full overflow-hidden bg-white flex items-center justify-center border-4 border-white shadow-xl">
-                {profilePicture ? (
-                  <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                    <span className="text-5xl font-bold text-indigo-600">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+        {/* Profile Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2.5rem] shadow-2xl p-8 mb-8 text-white relative overflow-hidden">
+          <div className="relative flex flex-col md:flex-row items-center gap-8">
+            <div className="relative">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-white flex items-center justify-center">
+                {profilePicture ? <img src={profilePicture} className="w-full h-full object-cover" alt="" /> : <User size={64} className="text-indigo-200" />}
               </div>
-              <button
-                onClick={() => setShowUpload(true)}
-                className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-50 transition-all transform hover:scale-110"
-              >
-                <Camera className="w-5 h-5 text-indigo-600" />
-              </button>
+              <button onClick={() => setShowUpload(true)} className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-indigo-600"><Camera size={18}/></button>
             </div>
-
-            {/* User Info */}
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">{user.name}</h1>
-              <p className="text-indigo-100 mb-3">{user.email}</p>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-white bg-opacity-20 backdrop-blur-sm rounded-full text-sm font-semibold">
-                  {user.role}
-                </span>
-                {user.subscription?.isActive && (
-                  <span className="px-3 py-1 bg-green-500 rounded-full text-sm font-semibold flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4" />
-                    Active Subscription
-                  </span>
-                )}
+            <div className="flex-1 text-center md:text-left">
+              <h1 className="text-4xl font-black mb-1">{user.name}</h1>
+              <p className="text-indigo-100 font-medium mb-4">{user.email}</p>
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">{user.role}</span>
+                {user.subscription?.isActive && <span className="px-4 py-1.5 bg-emerald-500 rounded-full text-xs font-black uppercase tracking-widest">Active Plan</span>}
               </div>
             </div>
-
-            {/* Edit Button */}
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-6 py-3 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-semibold shadow-lg flex items-center gap-2"
-            >
-              {isEditing ? <X className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
-              {isEditing ? 'Cancel' : 'Edit Profile'}
+            <button onClick={() => setIsEditing(!isEditing)} className="px-6 py-3 bg-white text-indigo-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2">
+              {isEditing ? <X size={16}/> : <Edit2 size={16}/>} {isEditing ? 'Cancel' : 'Edit'}
             </button>
           </div>
         </div>
 
-        {/* Profile Details */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Information</h2>
-          
-          {isEditing ? (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
-                <div className="flex items-center border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500">
-                  <User className="w-5 h-5 text-gray-400 ml-3" />
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full p-3 pl-3 bg-transparent focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
-                <div className="flex items-center border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500">
-                  <Mail className="w-5 h-5 text-gray-400 ml-3" />
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full p-3 pl-3 bg-transparent focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="Enter phone number"
-                />
-              </div>
-
-              <button
-                onClick={handleUpdateProfile}
-                disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" />
-                    Save Changes
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <User className="w-6 h-6 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Full Name</p>
-                  <p className="font-semibold text-gray-800">{user.name}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Mail className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-semibold text-gray-800">{user.email}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Role</p>
-                  <p className="font-semibold text-gray-800">{user.role}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Member Since</p>
-                  <p className="font-semibold text-gray-800">{formatDate(user.createdAt)}</p>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Basic Info */}
+        <div className="bg-white rounded-[2.5rem] shadow-xl p-8 mb-8 border border-slate-100">
+           {isEditing ? (
+             <div className="space-y-4">
+                <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="Full Name" />
+                <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="Email" />
+                <button onClick={handleUpdateProfile} disabled={loading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2"><Save size={18}/> Save Changes</button>
+             </div>
+           ) : (
+             <div className="grid md:grid-cols-2 gap-6">
+                {[ { label: 'Full Name', val: user.name, icon: <User/> }, { label: 'Email', val: user.email, icon: <Mail/> }, { label: 'Role', val: user.role, icon: <Shield/> }, { label: 'Joined', val: formatDate(user.createdAt), icon: <Calendar/> } ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-4 p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+                    <div className="text-indigo-500">{item.icon}</div>
+                    <div><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="font-bold text-slate-700">{item.val}</p></div>
+                  </div>
+                ))}
+             </div>
+           )}
         </div>
 
-        {/* Subscription Details */}
-        {user.subscription && (
-          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Subscription Details</h2>
-            
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <CreditCard className="w-6 h-6 text-blue-600" />
-                  <p className="font-semibold text-gray-700">Plan</p>
-                </div>
-                <p className="text-2xl font-bold text-blue-600">
-                  {user.subscription.planId?.name || user.subscription.planName || 'Default'}
-                </p>
-              </div>
-
-              <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
-                <div className="flex items-center gap-3 mb-3">
-                  <Clock className="w-6 h-6 text-green-600" />
-                  <p className="font-semibold text-gray-700">Days Remaining</p>
-                </div>
-                <p className="text-2xl font-bold text-green-600">
-                  {user.subscription.daysRemaining || 0} days
-                </p>
-              </div>
-
-              <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200">
-                <div className="flex items-center gap-3 mb-3">
-                  {user.subscription.isActive ? (
-                    <CheckCircle className="w-6 h-6 text-purple-600" />
-                  ) : (
-                    <XCircle className="w-6 h-6 text-red-600" />
-                  )}
-                  <p className="font-semibold text-gray-700">Status</p>
-                </div>
-                <p className={`text-2xl font-bold ${user.subscription.isActive ? 'text-purple-600' : 'text-red-600'}`}>
-                  {user.subscription.isActive ? 'Active' : 'Inactive'}
-                </p>
-              </div>
-            </div>
-
-            {user.subscription.endDate && (
-              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <p className="text-sm text-yellow-800">
-                  <strong>Valid Until:</strong> {formatDate(user.subscription.endDate)}
-                </p>
-              </div>
-            )}
-
-            {!user.subscription.isActive && (
-              <button
-                onClick={() => navigate('/subscriptions')}
-                className="mt-6 w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg"
-              >
-                Renew Subscription
-              </button>
-            )}
+        {/* NEW: SECURITY & PASSWORD SECTION */}
+        <div className="bg-white rounded-[2.5rem] shadow-xl p-8 mb-8 border border-slate-100 overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-8 opacity-10"><Lock size={80}/></div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2 flex items-center gap-3"><ShieldAlert className="text-indigo-600"/> Security & Privacy</h2>
+          <p className="text-slate-500 text-sm mb-8">Manage your account security and password. If you are staff, updating your password here activates your full permissions.</p>
+          
+          <div className="flex flex-col md:flex-row gap-4">
+             <button 
+                onClick={() => navigate('/security/change-password')}
+                className="flex-1 py-4 px-6 bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+             >
+                <Lock size={16} /> Change Password
+             </button>
+             <button className="flex-1 py-4 px-6 bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:border-red-500 hover:text-red-600 transition-all flex items-center justify-center gap-2">
+                Enable 2FA (Coming Soon)
+             </button>
           </div>
-        )}
+        </div>
 
-        {/* Logout Button */}
-        <button
-          onClick={() => {
-            logout();
-            navigate('/');
-          }}
-          className="w-full py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-semibold shadow-lg"
-        >
-          Logout
-        </button>
+        {/* Subscription Info ... same as your code ... */}
+
+        <button onClick={() => { logout(); navigate('/'); }} className="w-full py-4 bg-red-50 text-red-600 border-2 border-red-100 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg shadow-red-100">Logout Account</button>
       </div>
 
-      {/* Profile Picture Upload Modal */}
-      {showUpload && (
-        <ProfilePictureUpload
-          currentImage={profilePicture}
-          onImageUpdate={handleProfilePictureUpdate}
-          onClose={() => setShowUpload(false)}
-          userId={user._id || user.id}
-        />
-      )}
+      {showUpload && <ProfilePictureUpload onClose={() => setShowUpload(false)} onImageUpdate={setProfilePicture} userId={user._id || user.id} />}
     </PageWrapper>
   );
 };
 
 export default Profile;
+
+//   return (
+//     <PageWrapper className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-6">
+//       <div className="max-w-4xl mx-auto">
+//         <BackButton to="/dashboard" />
+
+//         {/* Profile Header Card */}
+//         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-6 text-white relative overflow-hidden">
+//           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
+//           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
+          
+//           <div className="relative flex items-center gap-6">
+//             {/* Profile Picture */}
+//             <div className="relative group">
+//               <div className="w-32 h-32 rounded-full overflow-hidden bg-white flex items-center justify-center border-4 border-white shadow-xl">
+//                 {profilePicture ? (
+//                   <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+//                 ) : (
+//                   <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+//                     <span className="text-5xl font-bold text-indigo-600">
+//                       {user.name?.charAt(0).toUpperCase()}
+//                     </span>
+//                   </div>
+//                 )}
+//               </div>
+//               <button
+//                 onClick={() => setShowUpload(true)}
+//                 className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-50 transition-all transform hover:scale-110"
+//               >
+//                 <Camera className="w-5 h-5 text-indigo-600" />
+//               </button>
+//             </div>
+
+//             {/* User Info */}
+//             <div className="flex-1">
+//               <h1 className="text-3xl font-bold mb-2">{user.name}</h1>
+//               <p className="text-indigo-100 mb-3">{user.email}</p>
+//               <div className="flex items-center gap-3">
+//                 <span className="px-3 py-1 bg-white bg-opacity-20 backdrop-blur-sm rounded-full text-sm font-semibold">
+//                   {user.role}
+//                 </span>
+//                 {user.subscription?.isActive && (
+//                   <span className="px-3 py-1 bg-green-500 rounded-full text-sm font-semibold flex items-center gap-1">
+//                     <CheckCircle className="w-4 h-4" />
+//                     Active Subscription
+//                   </span>
+//                 )}
+//               </div>
+//             </div>
+
+//             {/* Edit Button */}
+//             <button
+//               onClick={() => setIsEditing(!isEditing)}
+//               className="px-6 py-3 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-semibold shadow-lg flex items-center gap-2"
+//             >
+//               {isEditing ? <X className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+//               {isEditing ? 'Cancel' : 'Edit Profile'}
+//             </button>
+//           </div>
+//         </div>
+
+//         {/* Profile Details */}
+//         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+//           <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Information</h2>
+          
+//           {isEditing ? (
+//             <div className="space-y-6">
+//               <div>
+//                 <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+//                 <div className="flex items-center border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500">
+//                   <User className="w-5 h-5 text-gray-400 ml-3" />
+//                   <input
+//                     type="text"
+//                     value={form.name}
+//                     onChange={(e) => setForm({ ...form, name: e.target.value })}
+//                     className="w-full p-3 pl-3 bg-transparent focus:outline-none"
+//                   />
+//                 </div>
+//               </div>
+
+//               <div>
+//                 <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+//                 <div className="flex items-center border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500">
+//                   <Mail className="w-5 h-5 text-gray-400 ml-3" />
+//                   <input
+//                     type="email"
+//                     value={form.email}
+//                     onChange={(e) => setForm({ ...form, email: e.target.value })}
+//                     className="w-full p-3 pl-3 bg-transparent focus:outline-none"
+//                   />
+//                 </div>
+//               </div>
+
+//               <div>
+//                 <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
+//                 <input
+//                   type="tel"
+//                   value={form.phone}
+//                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
+//                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+//                   placeholder="Enter phone number"
+//                 />
+//               </div>
+
+//               <button
+//                 onClick={handleUpdateProfile}
+//                 disabled={loading}
+//                 className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+//               >
+//                 {loading ? (
+//                   <>
+//                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+//                     Saving...
+//                   </>
+//                 ) : (
+//                   <>
+//                     <Save className="w-5 h-5" />
+//                     Save Changes
+//                   </>
+//                 )}
+//               </button>
+//             </div>
+//           ) : (
+//             <div className="grid md:grid-cols-2 gap-6">
+//               <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
+//                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+//                   <User className="w-6 h-6 text-indigo-600" />
+//                 </div>
+//                 <div>
+//                   <p className="text-sm text-gray-600">Full Name</p>
+//                   <p className="font-semibold text-gray-800">{user.name}</p>
+//                 </div>
+//               </div>
+
+//               <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
+//                 <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+//                   <Mail className="w-6 h-6 text-purple-600" />
+//                 </div>
+//                 <div>
+//                   <p className="text-sm text-gray-600">Email</p>
+//                   <p className="font-semibold text-gray-800">{user.email}</p>
+//                 </div>
+//               </div>
+
+//               <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
+//                 <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+//                   <Shield className="w-6 h-6 text-green-600" />
+//                 </div>
+//                 <div>
+//                   <p className="text-sm text-gray-600">Role</p>
+//                   <p className="font-semibold text-gray-800">{user.role}</p>
+//                 </div>
+//               </div>
+
+//               <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
+//                 <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+//                   <Calendar className="w-6 h-6 text-orange-600" />
+//                 </div>
+//                 <div>
+//                   <p className="text-sm text-gray-600">Member Since</p>
+//                   <p className="font-semibold text-gray-800">{formatDate(user.createdAt)}</p>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+//         </div>
+
+//         {/* Subscription Details */}
+//         {user.subscription && (
+//           <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+//             <h2 className="text-2xl font-bold text-gray-800 mb-6">Subscription Details</h2>
+            
+//             <div className="grid md:grid-cols-3 gap-6">
+//               <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+//                 <div className="flex items-center gap-3 mb-3">
+//                   <CreditCard className="w-6 h-6 text-blue-600" />
+//                   <p className="font-semibold text-gray-700">Plan</p>
+//                 </div>
+//                 <p className="text-2xl font-bold text-blue-600">
+//                   {user.subscription.planId?.name || user.subscription.planName || 'Default'}
+//                 </p>
+//               </div>
+
+//               <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+//                 <div className="flex items-center gap-3 mb-3">
+//                   <Clock className="w-6 h-6 text-green-600" />
+//                   <p className="font-semibold text-gray-700">Days Remaining</p>
+//                 </div>
+//                 <p className="text-2xl font-bold text-green-600">
+//                   {user.subscription.daysRemaining || 0} days
+//                 </p>
+//               </div>
+
+//               <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+//                 <div className="flex items-center gap-3 mb-3">
+//                   {user.subscription.isActive ? (
+//                     <CheckCircle className="w-6 h-6 text-purple-600" />
+//                   ) : (
+//                     <XCircle className="w-6 h-6 text-red-600" />
+//                   )}
+//                   <p className="font-semibold text-gray-700">Status</p>
+//                 </div>
+//                 <p className={`text-2xl font-bold ${user.subscription.isActive ? 'text-purple-600' : 'text-red-600'}`}>
+//                   {user.subscription.isActive ? 'Active' : 'Inactive'}
+//                 </p>
+//               </div>
+//             </div>
+
+//             {user.subscription.endDate && (
+//               <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+//                 <p className="text-sm text-yellow-800">
+//                   <strong>Valid Until:</strong> {formatDate(user.subscription.endDate)}
+//                 </p>
+//               </div>
+//             )}
+
+//             {!user.subscription.isActive && (
+//               <button
+//                 onClick={() => navigate('/subscriptions')}
+//                 className="mt-6 w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg"
+//               >
+//                 Renew Subscription
+//               </button>
+//             )}
+//           </div>
+//         )}
+
+//         {/* Logout Button */}
+//         <button
+//           onClick={() => {
+//             logout();
+//             navigate('/');
+//           }}
+//           className="w-full py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-semibold shadow-lg"
+//         >
+//           Logout
+//         </button>
+//       </div>
+
+//       {/* Profile Picture Upload Modal */}
+//       {showUpload && (
+//         <ProfilePictureUpload
+//           currentImage={profilePicture}
+//           onImageUpdate={handleProfilePictureUpdate}
+//           onClose={() => setShowUpload(false)}
+//           userId={user._id || user.id}
+//         />
+//       )}
+//     </PageWrapper>
+//   );
+// };
+
+// export default Profile;

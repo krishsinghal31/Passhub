@@ -1,4 +1,4 @@
-// src/pages/visitor/EditEvent.jsx - COMPLETE
+// src/pages/visitor/EditEvent.jsx 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';

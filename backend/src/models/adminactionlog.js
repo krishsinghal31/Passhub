@@ -1,3 +1,4 @@
+// src/models/adminactionlog.js
 const mongoose = require("mongoose");
 
 const adminActionLogSchema = new mongoose.Schema(

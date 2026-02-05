@@ -1,4 +1,4 @@
-// src/components/analytics/AnalyticsCharts.jsx - NEW FILE
+// src/components/analytics/AnalyticsCharts.jsx 
 import React, { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Calendar, Users } from 'lucide-react';
 import api from '../../utils/api';

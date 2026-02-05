@@ -1,3 +1,4 @@
+// backend/src/controllers/hostanalytics.js
 const Pass = require("../models/pass");
 const ScanLog = require("../models/scanlog");
 const Place = require("../models/place");
@@ -10,7 +11,6 @@ exports.getBookingsPerDay = async (req, res) => {
 
     console.log("🔍 DEBUG - Input params:", { eventId, startDate, endDate });
 
-    // Get ALL passes for this place to see their actual dates
     const allPasses = await Pass.find({ place: eventId })
       .select('visitDate status')
       .sort({ visitDate: 1 });
@@ -25,7 +25,6 @@ exports.getBookingsPerDay = async (req, res) => {
       });
     });
 
-    // Get date range of actual passes
     if (allPasses.length > 0) {
       const dates = allPasses.map(p => p.visitDate);
       const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
@@ -38,7 +37,6 @@ exports.getBookingsPerDay = async (req, res) => {
       });
     }
 
-    // Build filter - FIXED: Use new ObjectId()
     let filter = { place: new mongoose.Types.ObjectId(eventId) };
     
     if (startDate && endDate) {
@@ -116,7 +114,6 @@ exports.getPeakCheckInHours = async (req, res) => {
       });
     }
 
-    // FIXED: Use new ObjectId()
     const data = await ScanLog.aggregate([
       { 
         $match: { 
@@ -170,7 +167,6 @@ exports.getSecurityActivity = async (req, res) => {
   try {
     const { placeId } = req.params;
 
-    // FIXED: Use new ObjectId()
     const data = await ScanLog.aggregate([
       { $match: { place: new mongoose.Types.ObjectId(placeId) } },
       {

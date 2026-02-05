@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/admin/ActionModal.jsx
 import React, { useState } from 'react';
 import api from '../../utils/api';
 

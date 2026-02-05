@@ -1,7 +1,7 @@
 // backend/routes/authrouter.js 
 const express = require("express");
 const router = express.Router();
-const { registerUser, loginUser, updateProfile } = require("../controllers/auth");
+const { registerUser, loginUser, updateProfile,updatePassword } = require("../controllers/auth");
 const authMiddleware = require("../middlewares/auth");
 const User = require("../models/user");
 
@@ -71,5 +71,7 @@ router.put("/update-profile", authMiddleware, async (req, res) => {
     });
   }
 });
+
+router.put("/update-password", authMiddleware, updatePassword);
 
 module.exports = router;

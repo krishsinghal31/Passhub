@@ -1,3 +1,4 @@
+// backend/src/services/createadmin.js
 const bcrypt = require("bcryptjs");
 const User = require("../models/user");
 
@@ -9,7 +10,6 @@ module.exports = async function seedSuperAdmin() {
       return;
     }
 
-    // Hash password BEFORE creating user
     const passwordHash = await bcrypt.hash(
       process.env.SUPER_ADMIN_PASSWORD,
       10

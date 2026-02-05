@@ -1,3 +1,4 @@
+// controllers/placeanalytics.js
 const Pass = require("../models/pass");
 const mongoose = require("mongoose");
 

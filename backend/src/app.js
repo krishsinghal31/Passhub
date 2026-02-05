@@ -1,3 +1,4 @@
+// backend/src/app.js
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -37,7 +38,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '10mb' }));
-// ✅ ADDED: Public routes (no authentication needed)
+
 app.use("/api/public", publicRouter);
 
 app.use("/api/auth", authRouter);

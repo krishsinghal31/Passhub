@@ -260,7 +260,7 @@ const AdminManageEvent = () => {
     isOpen={showSeatsModal}
     eventId={event._id}
     totalCapacity={event.capacity}
-    apiPath={`/admin/events/${event._id}/booked-seats`}  // Added apiPath for admins
+    apiPath={`/admin/events/${event._id}/booked-seats`}  
     onClose={() => setShowSeatsModal(false)}
   />
       )}

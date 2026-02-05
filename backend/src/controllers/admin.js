@@ -1,12 +1,11 @@
-// backend/controllers/admin.js - COMPLETE UPDATED VERSION
+// backend/controllers/admin.js 
 
 const User = require("../models/user");
 const Pass = require("../models/pass");
 const Place = require("../models/place");
 const Security = require("../models/security");
 const Booking = require("../models/booking");
-const SubscriptionPlan = require("../models/subscriptionplan"); // Ensure this model exists
-const bcrypt = require("bcryptjs");
+const SubscriptionPlan = require("../models/subscriptionplan"); 
 const crypto = require("crypto");
 const { sendAdminInviteMail } = require("../services/admininvitemail");
 const { sendPassEmail } = require("../services/email");
@@ -578,6 +577,36 @@ exports.getEventDetailsForAdmin = async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+};
+
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments({ role: { $ne: 'SUPER_ADMIN' } });
+    const totalEvents = await Place.countDocuments({});
+    const totalPasses = await Pass.countDocuments({});
+    
+    const revenueData = await Pass.aggregate([
+      { $match: { paymentStatus: 'PAID' } },
+      { $group: { _id: null, total: { $sum: '$amountPaid' } } }
+    ]);
+
+    const activeSubscribers = await User.countDocuments({ 
+      "subscription.isActive": true 
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers: totalUsers,
+        totalEvents: totalEvents,
+        totalPasses: totalPasses,
+        activeSubscribers: activeSubscribers,
+        totalRevenue: revenueData[0]?.total || 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -1,59 +1,61 @@
-// backend/middleware/adminAuth.js - UPDATED
+// backend/middlewares/adminAuth.js - UPDATED
+const jwt = require('jsonwebtoken');
+const User = require('../models/user');
 
-const adminAuth = (req, res, next) => {
+const adminAuth = async (req, res, next) => {
   try {
-    // Check if user is authenticated (should be set by auth middleware)
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required"
-      });
+    // 1. Extract Token from Header
+    const token = req.headers.authorization?.startsWith('Bearer') 
+      ? req.headers.authorization.split(' ')[1] 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: "No token provided" });
     }
 
-    // Check if user is ADMIN or SUPER_ADMIN
-    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. Admin privileges required."
-      });
+    // 2. Verify Token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // 3. Handle SUPER_ADMIN specially
+    if (decoded.id === "SUPER_ADMIN" && decoded.role === "SUPER_ADMIN") {
+      req.user = {
+        _id: "SUPER_ADMIN",
+        id: "SUPER_ADMIN",
+        role: "SUPER_ADMIN",
+        email: process.env.SUPER_ADMIN_EMAIL || "admin@passhub.com",
+        name: "Super Admin"
+      };
+      return next();
+    }
+    
+    // 4. Find User
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ success: false, message: "User no longer exists" });
     }
 
+    // 5. Role Check
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ success: false, message: "Admin privileges required" });
+    }
+
+    // 6. Attach to request and move to next
+    req.user = user;
     next();
   } catch (error) {
-    console.error("Admin auth middleware error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Authorization failed"
-    });
+    console.error("Auth Middleware Error:", error.message);
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 };
 
-const superAdminAuth = (req, res, next) => {
-  try {
-    // Check if user is authenticated
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required"
-      });
-    }
-
-    // Check if user is SUPER_ADMIN only
+const superAdminAuth = async (req, res, next) => {
+  // We reuse adminAuth logic first
+  await adminAuth(req, res, () => {
     if (req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied. Super Admin privileges required."
-      });
+      return res.status(403).json({ success: false, message: "Super Admin privileges required" });
     }
-
     next();
-  } catch (error) {
-    console.error("Super Admin auth middleware error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Authorization failed"
-    });
-  }
+  });
 };
 
 module.exports = { adminAuth, superAdminAuth };

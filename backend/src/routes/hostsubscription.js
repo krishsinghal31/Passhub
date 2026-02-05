@@ -1,3 +1,4 @@
+// backend/src/routes/hostsubscription.js
 const router = require("express").Router();
 const { purchaseSubscription, confirmSubscriptionPayment } = require("../controllers/hostsubscription");
 const auth = require("../middlewares/auth");

@@ -1,3 +1,4 @@
+// src/models/place.js
 const mongoose = require("mongoose");
 
 const placeSchema = new mongoose.Schema(
@@ -19,25 +20,25 @@ const placeSchema = new mongoose.Schema(
     description: {
       type: String,
       default: ""
-    }, // Added for event details
+    }, 
     category: {
       type: String,
       default: "general"
-    }, // Added for filtering
+    }, 
     tags: {
       type: [String],
       default: []
-    }, // Added for tags
+    }, 
     rating: {
       type: Number,
       default: 4.5,
       min: 0,
       max: 5
-    }, // Added for display
+    }, 
     featured: {
       type: Boolean,
       default: false
-    }, // Added for featured events
+    }, 
     host: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -110,10 +111,9 @@ const placeSchema = new mongoose.Schema(
 placeSchema.index({ host: 1 });
 placeSchema.index({ "eventDates.start": 1, "eventDates.end": 1 });
 placeSchema.index({ isBookingEnabled: 1 });
-placeSchema.index({ featured: 1 }); // Added for featured queries
-placeSchema.index({ category: 1 }); // Added for category filtering
+placeSchema.index({ featured: 1 }); 
+placeSchema.index({ category: 1 }); 
 
-// Virtual for checking if event is active
 placeSchema.virtual("isEventActive").get(function() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -126,7 +126,6 @@ placeSchema.virtual("isEventActive").get(function() {
   return today >= start && today <= end;
 });
 
-// Virtual for checking if hosting is valid
 placeSchema.virtual("isHostingValid").get(function() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);

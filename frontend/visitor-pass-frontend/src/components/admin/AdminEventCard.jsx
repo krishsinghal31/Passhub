@@ -1,3 +1,4 @@
+// frontend/visitor-pass-frontend/src/components/admin/AdminEventCard.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Users, Settings, ToggleLeft, ToggleRight, XCircle, User, Eye } from 'lucide-react';  // Added Eye for Seats Status

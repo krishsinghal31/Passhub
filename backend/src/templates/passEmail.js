@@ -136,7 +136,10 @@ exports.passEmailTemplate = ({ guest, place, visitDate, passes }) => {
                           <span style="opacity: 0.9;">📅 Date:</span>
                         </td>
                         <td style="padding: 8px 0; text-align: right;">
-                          <strong>${formatDate(visitDate)}</strong>
+                          ${place.ticketAccessMode === 'ALL_DAYS' && place.eventDates?.start && place.eventDates?.end
+                            ? `<strong>${formatDate(place.eventDates.start)} - ${formatDate(place.eventDates.end)}</strong>`
+                            : `<strong>${formatDate(visitDate)}</strong>`
+                          }
                         </td>
                       </tr>
                       <tr>

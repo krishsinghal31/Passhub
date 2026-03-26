@@ -13,12 +13,21 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
+  const ticketAccessMode = event?.ticketAccessMode || 'SELECT_DATE';
+  const isAllDaysAccess = ticketAccessMode === 'ALL_DAYS';
+
   useEffect(() => {
     const fetchPlace = async () => {
       try {
         const res = await api.get(`/places/${placeId}`);
         if (res.data.success) {
           setEvent(res.data.place);
+
+          // If host selected ALL_DAYS, we don't need the visitor to pick a date.
+          if (res.data.place?.ticketAccessMode === 'ALL_DAYS' && res.data.place?.eventDates?.start) {
+            const startISO = new Date(res.data.place.eventDates.start).toISOString().split('T')[0];
+            setVisitDate(startISO);
+          }
         }
       } catch (error) {
         console.error('Error fetching place:', error);
@@ -52,7 +61,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!visitDate) {
+    if (!isAllDaysAccess && !visitDate) {
       alert('Please select a visit date');
       return;
     }
@@ -61,14 +70,16 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
     try {
       const res = await api.post('/passes/request', { 
         placeId, 
-        visitDate,
+        visitDate: visitDate || event?.eventDates?.start,
         guests: guests.filter(g => g.name.trim() !== '')
       });
       
       if (res.data.success) {
         if (res.data.amountToPay > 0) {
           alert(`Booking created! Amount to pay: ₹${res.data.amountToPay}. Please proceed to payment.`);
-          navigate('/dashboard');
+          navigate(`/payment/${res.data.bookingId}`, {
+            state: { amount: res.data.amountToPay, eventName: event?.name || 'Event' }
+          });
         } else {
           alert('Booking confirmed! Free passes have been generated and sent to your email.');
           navigate('/dashboard');
@@ -145,21 +156,33 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
           </h2>
           
           {/* Visit Date */}
-          <div className="mb-8">
-            <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-              <Calendar className="text-indigo-600" size={18} />
-              Visit Date *
-            </label>
-            <input 
-              type="date" 
-              value={visitDate}
-              onChange={(e) => setVisitDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-              max={event.eventDates?.end ? new Date(event.eventDates.end).toISOString().split('T')[0] : ''}
-              className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
-              required 
-            />
-          </div>
+          {!isAllDaysAccess ? (
+            <div className="mb-8">
+              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <Calendar className="text-indigo-600" size={18} />
+                Visit Date *
+              </label>
+              <input 
+                type="date" 
+                value={visitDate}
+                onChange={(e) => setVisitDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                max={event.eventDates?.end ? new Date(event.eventDates.end).toISOString().split('T')[0] : ''}
+                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
+                required 
+              />
+            </div>
+          ) : (
+            <div className="mb-8 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100">
+              <div className="flex items-center gap-3 mb-2">
+                <Calendar className="text-indigo-600" size={18} />
+                <h3 className="text-sm font-black text-gray-700">All Days Access</h3>
+              </div>
+              <p className="text-sm text-gray-600">
+                Your booking will generate QR passes for every day of this event.
+              </p>
+            </div>
+          )}
 
           {/* Guests */}
           <div className="mb-8">

@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }) => {
         subscription: d.subscription || { isActive: false }
     };
     
-    // Only try to get profile picture if user has a valid ID (not SUPER_ADMIN string)
     if (userData.id && userData.id !== "SUPER_ADMIN") {
       const savedPic = localStorage.getItem(`profile_picture_${userData.id}`);
       if (savedPic) userData.profilePicture = savedPic;
@@ -26,23 +25,6 @@ export const AuthProvider = ({ children }) => {
     
     return userData;
    };
-//     const normalizeUser = (data) => {
-//         const userId = data.user?._id || data.user?.id || data.userId;
-//     const userData = {
-//         id: data.user?.id || data.user?._id || data.userId,
-//         name: data.user?.name,
-//         email: data.user?.email,
-//         role: data.role || data.user?.role,
-//         subscription: data.user?.subscription || {}
-//     };
-
-//     const savedPic = localStorage.getItem(`profile_picture_${userData.id}`);
-//     if (savedPic) {
-//         userData.profilePicture = savedPic;
-//     }
-    
-//     return userData;
-// };
 
     const verifyAuth = useCallback(async () => {
         const token = localStorage.getItem('token');
@@ -97,6 +79,26 @@ export const AuthProvider = ({ children }) => {
     }
 };
 
+   const register = async (formOrName, email, password) => {
+    try {
+      const form = typeof formOrName === 'string'
+        ? { name: formOrName, email, password, role: 'VISITOR' }
+        : formOrName;
+
+      const response = await api.post('/auth/register', form);
+
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+        const userData = normalizeUser(response.data);
+        setUser(userData);
+        return { success: true, role: userData.role };
+      }
+    } catch (error) {
+      console.error('Register Error Details:', error.response?.data);
+      throw error.response?.data || { message: 'Registration failed' };
+    }
+  };
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('securityToken');
@@ -108,7 +110,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, setUser, refreshUser }}>
+        <AuthContext.Provider value={{ user, login, register, logout, loading, setUser, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

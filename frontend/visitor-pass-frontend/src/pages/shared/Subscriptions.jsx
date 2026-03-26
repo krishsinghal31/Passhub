@@ -1,11 +1,12 @@
 
 // src/pages/shared/Subscriptions.jsx 
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
 import SubscriptionCard from '../../components/common/SubscriptionCard';
 import BackButton from '../../components/common/BackButton';
 import { Zap } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
 const Subscriptions = () => {
   const [plans, setPlans] = useState([]);
@@ -13,8 +14,10 @@ const Subscriptions = () => {
   const [purchasingPlanId, setPurchasingPlanId] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshUser } = useContext(AuthContext);
   
   const eventDuration = location.state?.eventDuration;
+  const backTo = useMemo(() => location.state?.from || null, [location.state]);
 
   useEffect(() => {
     fetchPlans();
@@ -41,7 +44,6 @@ const Subscriptions = () => {
   };
 
   const handlePurchase = async (planId) => {
-    const { refreshUser } = useContext(AuthContext);
     setPurchasingPlanId(planId);
     try {
       const res = await api.post('/host-subscription/purchase', { 
@@ -52,6 +54,7 @@ const Subscriptions = () => {
       if (res.data.success) {
         if (res.data.subscription.paymentStatus === 'FREE') {
           alert('Free subscription activated!');
+          await refreshUser?.();
           navigate('/create-event');
         } else {
           // Paid plan - simulate payment confirmation for demo
@@ -67,6 +70,7 @@ const Subscriptions = () => {
             
             if (confirmRes.data.success) {
               alert('Payment successful! Subscription activated.');
+              await refreshUser?.();
               navigate('/create-event');
             }
           }
@@ -82,7 +86,8 @@ const Subscriptions = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-6">
       <div className="max-w-6xl mx-auto">
-        <BackButton to="/create-event" />
+        {/* Prefer going back in history; fallback to a provided route */}
+        <BackButton to={backTo} />
         
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">

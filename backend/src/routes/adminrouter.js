@@ -21,6 +21,7 @@ router.get("/events/:eventId/details", adminAuth, adminController.getEventDetail
 router.post("/subscription-plans", superAdminAuth, adminController.createSubscriptionPlan);
 router.get("/subscription-plans", superAdminAuth, adminController.getSubscriptionPlans);
 router.patch("/subscription-plans/:planId/toggle", superAdminAuth, adminController.toggleSubscriptionPlan);
+router.delete("/subscription-plans/:planId", superAdminAuth, adminController.deleteSubscriptionPlan);
 router.get("/events/:eventId/booked-seats", adminAuth, adminController.getBookedSeats);
 
 module.exports = router;

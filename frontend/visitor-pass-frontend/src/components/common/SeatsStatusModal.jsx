@@ -19,9 +19,17 @@ const SeatsStatusModal = ({ isOpen, eventId, totalCapacity, onClose, apiPath }) 
       setError(null);
       const res = await api.get(apiPath);
       if (res.data.success) {
-        // Extract slotNumbers from the slots array (based on your getSlots controller)
-        const bookedSlotNumbers = res.data.slots.map(slot => slot.slotNumber);
-        setBookedSeats(bookedSlotNumbers || []);
+        // Supports both response shapes:
+        // 1) { slots: [{slotNumber: number}, ...] } (host slots API)
+        // 2) { bookedSeats: [number, ...] } (admin booked-seats API)
+        const fromSlots = Array.isArray(res.data.slots)
+          ? res.data.slots.map((slot) => slot.slotNumber).filter(Boolean)
+          : null;
+        const fromBookedSeats = Array.isArray(res.data.bookedSeats)
+          ? res.data.bookedSeats.filter(Boolean)
+          : null;
+
+        setBookedSeats(fromSlots ?? fromBookedSeats ?? []);
       } else {
         setError('Failed to load seats data.');
       }

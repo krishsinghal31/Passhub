@@ -63,19 +63,40 @@ exports.scanPass = async (req, res) => {
     }
 
     const today = new Date();
-    today.setUTCHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
 
-    const visitDate = new Date(pass.visitDate);
-    visitDate.setUTCHours(0, 0, 0, 0); 
+    const accessMode = pass.ticketAccessMode || 'SELECT_DATE';
 
-    if (visitDate.getTime() !== today.getTime()) {
-      const formattedDate = visitDate.toLocaleDateString('en-US', { 
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-      });
-      return res.status(400).json({ 
-        success: false, 
-        message: `Invalid Date: Pass is valid for ${formattedDate}.` 
-      });
+    if (accessMode === 'ALL_DAYS') {
+      const start = new Date(pass.place?.eventDates?.start);
+      const end = new Date(pass.place?.eventDates?.end);
+      if (!pass.place?.eventDates?.start || !pass.place?.eventDates?.end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid pass validity window.' });
+      }
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      if (today.getTime() < start.getTime() || today.getTime() > end.getTime()) {
+        const formattedStart = start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const formattedEnd = end.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        return res.status(400).json({
+          success: false,
+          message: `Invalid Date: Pass is valid from ${formattedStart} to ${formattedEnd}.`
+        });
+      }
+    } else {
+      const visitDate = new Date(pass.visitDate);
+      visitDate.setHours(0, 0, 0, 0);
+
+      if (visitDate.getTime() !== today.getTime()) {
+        const formattedDate = visitDate.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        return res.status(400).json({
+          success: false,
+          message: `Invalid Date: Pass is valid for ${formattedDate}.`
+        });
+      }
     }
 
     if (pass.checkInTime && !pass.checkOutTime) {

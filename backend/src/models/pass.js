@@ -27,6 +27,11 @@ const passSchema = new mongoose.Schema(
       type: Date,
       required: true
     },
+    ticketAccessMode: {
+      type: String,
+      enum: ["SELECT_DATE", "ALL_DAYS"],
+      default: "SELECT_DATE"
+    },
     guest: {
       name: {
         type: String,

@@ -1,9 +1,9 @@
+//backend/src/middlewares/hostingactive.js
 const User = require("../models/user");
 
 const hostingActive = async (req, res, next) => {  
   try {
     const userId = req.user.id;
-
     const user = await User.findById(userId).populate("subscription.planId");
 
     if (!user) {

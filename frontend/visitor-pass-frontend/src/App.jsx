@@ -15,15 +15,17 @@ import CreateEvent from './pages/visitor/CreateEvent';
 import ManageEvent from './pages/visitor/ManageEvent';
 import BookingDetails from './pages/visitor/BookingDetails';
 import AdminDashboard from './pages/admin/Dashboard';
-//import SecurityLogin from './pages/security/Login';
+import SecurityLogin from './pages/security/Login';
 import SecurityDashboard from './pages/security/Dashboard';
 import SecurityChangePassword from './pages/security/ChangePassword';
+import SecurityActivityLog from './pages/security/ActivityLog';
 import Subscriptions from './pages/shared/Subscriptions';
 import Profile from './pages/shared/Profile';
 import NotFound from './pages/shared/NotFound';
 import AdminManageEvent from './pages/admin/ManageEvent';
 import EditEvent from './pages/visitor/EditEvent';
 import SecurityScanner from './pages/security/SecurityScanner';
+import PaymentPage from './pages/visitor/PaymentPage';
 
 const App = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -47,14 +49,17 @@ const App = () => {
               <Route path="/manage-event/:eventId" element={<ManageEvent />} />
               <Route path="/edit-event/:eventId" element={<EditEvent />} />
               <Route path="/booking/:bookingId" element={<BookingDetails />} />
+              <Route path="/payment/:bookingId" element={<PaymentPage />} />
               
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/events/:eventId/manage" element={<AdminManageEvent />} />
               
               {/* Security Routes */}
+              <Route path="/security/login" element={<SecurityLogin />} />
               <Route path="/security/scanner/:placeId" element={<SecurityScanner />} />
               <Route path="/security/dashboard/:placeId" element={<SecurityDashboard />} />
+              <Route path="/security/activity/:placeId" element={<SecurityActivityLog />} />
               <Route path="/security/change-password" element={<SecurityChangePassword />} />
               
               {/* Shared Routes */}

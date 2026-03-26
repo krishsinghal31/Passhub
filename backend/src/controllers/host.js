@@ -20,6 +20,7 @@ exports.createPlace = async (req, res) => {
       location,
       image,
       eventDates,
+      ticketAccessMode,
       price,
       dailyCapacity,
       refundPolicy
@@ -37,9 +38,13 @@ exports.createPlace = async (req, res) => {
 
     const subStart = new Date(host.subscription.startDate);
     const subEnd = new Date(host.subscription.endDate);
+    subStart.setHours(0, 0, 0, 0);
+    subEnd.setHours(23, 59, 59, 999);
     
     const eventStart = new Date(eventDates.start);
     const eventEnd = new Date(eventDates.end);
+    eventStart.setHours(0, 0, 0, 0);
+    eventEnd.setHours(23, 59, 59, 999);
 
     if (eventStart < subStart || eventEnd > subEnd) {
       return res.status(400).json({ 
@@ -69,6 +74,7 @@ exports.createPlace = async (req, res) => {
         sameDayPercent: refundPolicy?.sameDayPercent || 50,
         description: refundPolicy?.description || "Standard refund policy"
       },
+      ticketAccessMode: ticketAccessMode === "ALL_DAYS" ? "ALL_DAYS" : "SELECT_DATE",
       isBookingEnabled: true
     });
 
@@ -341,7 +347,7 @@ exports.updateCapacity = async (req, res) => {
 exports.toggleBooking = async (req, res) => {
   try {
     const { placeId } = req.params;
-    const { reason } = req.body;
+    const { reason } = req.body || {};
 
     const place = await Place.findById(placeId);
 
@@ -445,67 +451,6 @@ exports.updateEventDates = async (req, res) => {
   }
 };
 
-// exports.inviteSecurity = async (req, res) => {
-//   try {
-//     const { placeId } = req.params;
-//     const { email, startDate, endDate } = req.body; 
-
-//     if (!startDate || !endDate) {
-//       return res.status(400).json({ success: false, message: "Assignment dates are required" });
-//     }
-
-//     const place = await Place.findById(placeId);
-//     if (!place) {
-//       return res.status(404).json({ success: false, message: "Place not found" });
-//     }
-
-//     const existing = await Security.findOne({ 
-//       email: email.toLowerCase(), 
-//       place: placeId 
-//     });
-    
-//     if (existing) {
-//       return res.status(400).json({ success: false, message: "Security already assigned to this place" });
-//     }
-
-//     const tempPassword = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-//     const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-//     const security = await Security.create({
-//       email: email.toLowerCase(),
-//       passwordHash,
-//       place: placeId,
-//       assignedBy: req.user.id,
-//       assignmentPeriod: {
-//         start: new Date(startDate), 
-//         end: new Date(endDate)     
-//       },
-//       status: "PENDING",
-//       isActive: true
-//     });
-
-//     await sendSecurityCredentials({
-//       to: email,
-//       password: tempPassword,
-//       placeName: place.name,
-//       placeId: placeId
-//     });
-
-//     res.json({
-//       success: true,
-//       message: "Security assigned with custom duration",
-//       security: {
-//         id: security._id,
-//         email: security.email,
-//         status: security.status,
-//         period: security.assignmentPeriod
-//       }
-//     });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 exports.assignSecurity = async (req, res) => {
   try {
     const { email, name, placeId, assignmentPeriod } = req.body;
@@ -517,6 +462,7 @@ exports.assignSecurity = async (req, res) => {
     let user = await User.findOne({ email: normalizedEmail });
     let tempPassword = null;
     let isNewUser = false;
+    let emailSent = false;
 
     if (!user) {
       isNewUser = true;
@@ -527,9 +473,17 @@ exports.assignSecurity = async (req, res) => {
         name: name,
         email: normalizedEmail,
         password: hashedPassword,
-        role: 'VISITOR', 
+        role: 'SECURITY',
         status: 'PENDING'
       });
+    }
+    
+    // Ensure the user can access SECURITY pages
+    if (user.role !== 'SECURITY') {
+      user.role = 'SECURITY';
+      // Keep status PENDING so they can change password if needed
+      user.status = user.status || 'PENDING';
+      await user.save();
     }
 
     await Security.create({
@@ -547,28 +501,40 @@ exports.assignSecurity = async (req, res) => {
     });
 
     if (isNewUser) {
-      await sendSecurityCredentials({
-        to: normalizedEmail,
-        password: tempPassword,
-        placeName: place.name
-      });
+      try {
+        await sendSecurityCredentials({
+          to: normalizedEmail,
+          password: tempPassword,
+          placeName: place.name
+        });
+        emailSent = true;
+      } catch (e) {
+        console.error('Security credential email failed:', e.message);
+      }
     } else {
-      await sendPassEmail({
-        to: normalizedEmail,
-        subject: `New Staff Assignment: ${place.name}`,
-        html: `
-          <div style="font-family: sans-serif; padding: 20px;">
-            <h2 style="color: #4f46e5;">New Assignment Received</h2>
-            <p>Hello ${user.name}, you have been assigned as security for <strong>${place.name}</strong>.</p>
-            <p>Log in to your dashboard and check the <strong>Work Tab</strong> to see your shift details.</p>
-          </div>
-        `
-      });
+      try {
+        await sendPassEmail({
+          to: normalizedEmail,
+          subject: `New Staff Assignment: ${place.name}`,
+          html: `
+            <div style="font-family: sans-serif; padding: 20px;">
+              <h2 style="color: #4f46e5;">New Assignment Received</h2>
+              <p>Hello ${user.name}, you have been assigned as security for <strong>${place.name}</strong>.</p>
+              <p>Log in to your dashboard and check the <strong>Work Tab</strong> to see your shift details.</p>
+            </div>
+          `
+        });
+        emailSent = true;
+      } catch (e) {
+        console.error('Security assignment email failed:', e.message);
+      }
     }
 
     res.json({ 
       success: true, 
-      message: isNewUser ? "Staff account created and credentials emailed." : "Existing user notified of assignment.",
+      message: isNewUser
+        ? (emailSent ? "Staff account created and credentials emailed." : "Staff account created, but email could not be sent.")
+        : (emailSent ? "Existing user notified of assignment." : "Security assigned, but email could not be sent."),
       tempPassword: tempPassword 
     });
 

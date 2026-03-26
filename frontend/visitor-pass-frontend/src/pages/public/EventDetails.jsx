@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import { Shield, X, Lock, Mail, Eye, EyeOff, MapPin, Calendar, Users, IndianRupee, Info, ArrowRight } from 'lucide-react';
+import { Shield, MapPin, Calendar, IndianRupee, Info, ArrowRight } from 'lucide-react';
 import PageWrapper from '../../components/common/PageWrapper';
 
 const EventDetails = () => {
@@ -10,10 +10,6 @@ const EventDetails = () => {
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
-  const [securityForm, setSecurityForm] = useState({ email: '', password: '' });
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlace = async () => {
@@ -30,34 +26,6 @@ const EventDetails = () => {
     };
     if (placeId) fetchPlace();
   }, [placeId]);
-
-  const handleSecurityLogin = async (e) => {
-    e.preventDefault();
-    setLoginLoading(true);
-    try {
-      const res = await api.post('/security/login', {
-        email: securityForm.email,
-        password: securityForm.password,
-        placeId
-      });
-      
-      if (res.data.success) {
-        localStorage.setItem('securityToken', res.data.token);
-        localStorage.setItem('securityId', res.data.security.id);
-        
-        // Check if status is PENDING to force password change
-        if (res.data.mustChangePassword) {
-          navigate(`/security/change-password?id=${res.data.security.id}`);
-        } else {
-          navigate('/security/dashboard');
-        }
-      }
-    } catch (error) {
-      alert(error.response?.data?.message || 'Invalid credentials or not assigned to this event');
-    } finally {
-      setLoginLoading(false);
-    }
-  };
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -159,7 +127,7 @@ const EventDetails = () => {
 
               {/* STAFF ENTRY BUTTON */}
               <button
-                onClick={() => setShowSecurityModal(true)}
+                onClick={() => navigate('/security/login', { state: { placeId, placeName: event.name } })}
                 className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest border-2 border-slate-900 text-slate-900 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
               >
                 <Shield size={18} /> Staff Entry
@@ -176,74 +144,6 @@ const EventDetails = () => {
         </div>
       </div>
 
-      {/* SECURITY MODAL */}
-      {showSecurityModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 relative animate-in zoom-in-95 duration-200">
-            <button 
-              onClick={() => setShowSecurityModal(false)}
-              className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full text-slate-400"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Shield size={32} />
-              </div>
-              <h3 className="text-2xl font-black text-slate-800">Security Access</h3>
-              <p className="text-slate-500 text-sm font-medium">Verify credentials for {event.name}</p>
-            </div>
-
-            <form onSubmit={handleSecurityLogin} className="space-y-5">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 ml-1">Staff Email</label>
-                <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-indigo-500 transition-all">
-                  <Mail className="w-5 h-5 text-slate-400 ml-4" />
-                  <input
-                    type="email"
-                    required
-                    className="w-full p-4 pl-3 bg-transparent outline-none font-bold text-slate-700"
-                    placeholder="name@staff.com"
-                    value={securityForm.email}
-                    onChange={(e) => setSecurityForm({...securityForm, email: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 ml-1">10-Digit Password</label>
-                <div className="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-indigo-500 transition-all relative">
-                  <Lock className="w-5 h-5 text-slate-400 ml-4" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    className="w-full p-4 pl-3 bg-transparent outline-none font-bold text-slate-700 pr-12"
-                    placeholder="••••••••"
-                    value={securityForm.password}
-                    onChange={(e) => setSecurityForm({...securityForm, password: e.target.value})}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 text-slate-400 hover:text-indigo-600"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black shadow-xl shadow-slate-200 hover:bg-indigo-600 transition-all disabled:opacity-50"
-              >
-                {loginLoading ? 'Authenticating...' : 'Enter Dashboard'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </PageWrapper>
   );
 };

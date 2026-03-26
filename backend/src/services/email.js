@@ -23,13 +23,12 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify((error, success) => {
   if (error) {
-    console.error('❌ SMTP Connection Error:', error);
+    console.error('❌SMTP Connection Error:', error);
   } else {
-    console.log('✅ SMTP Server is ready to send emails');
+    console.log('✅SMTP Server is ready to send emails');
   }
 });
 
-// --- DEFINE FUNCTIONS AS LOCAL CONSTANTS SO THEY CAN SEE EACH OTHER ---
 
 const sendPassEmail = async ({ to, subject, html, attachments = [] }) => {
   try {

@@ -126,6 +126,7 @@ exports.getHomeEvents = async (req, res) => {
   }
 };
 
+//get popular events
 exports.getFeaturedEvents = async (req, res) => {
   try {
     const today = new Date();
@@ -176,7 +177,7 @@ exports.getFeaturedEvents = async (req, res) => {
     });
   }
 };
-
+//for future app expension
 exports.getCategories = async (req, res) => {
   try {
     const today = new Date();

@@ -13,7 +13,7 @@ exports.createBooking = async (req, res) => {
     const { placeId, visitDate, guests } = req.body;
     const visitorId = req.user.id;
 
-    // Prevent SUPER_ADMIN from creating bookings (they don't have a real user ID)
+    // Prevent SUPER_ADMIN from creating bookings
     if (visitorId === "SUPER_ADMIN") {
       return res.status(403).json({
         success: false,
@@ -23,13 +23,35 @@ exports.createBooking = async (req, res) => {
 
     const place = await Place.findById(placeId).populate("host");
 
-    const vDate = new Date(visitDate);
-    vDate.setHours(0, 0, 0, 0);
+    const placeStart = new Date(place.eventDates.start);
+    const placeEnd = new Date(place.eventDates.end);
+    placeStart.setHours(0, 0, 0, 0);
+    placeEnd.setHours(0, 0, 0, 0);
+
+    const accessMode = place.ticketAccessMode || "SELECT_DATE";
+
+    const bookingVisitDateRaw = accessMode === "ALL_DAYS" ? placeStart : new Date(visitDate);
+    const bookingVisitDate = new Date(bookingVisitDateRaw);
+    bookingVisitDate.setHours(0, 0, 0, 0);
+
+    if (accessMode !== "ALL_DAYS") {
+      if (isNaN(bookingVisitDate.getTime())) {
+        return res.status(400).json({ success: false, message: "Please select a valid visit date." });
+      }
+      if (bookingVisitDate < placeStart || bookingVisitDate > placeEnd) {
+        return res.status(400).json({ success: false, message: "Visit date must be within event dates." });
+      }
+    }
+
+    // For ALL_DAYS we generate ONE QR/pass per guest and validate the date range at scan time.
+    // So we keep a single `passDate` (event start) for the Pass document.
+    const passDate = bookingVisitDate;
+    const perPassAmountPaid = place.price;
 
     const booking = await Booking.create({
       visitor: visitorId,
       place: placeId,
-      visitDate: vDate,
+      visitDate: passDate,
       guestCount: guests.length,
       totalAmount: place.price * guests.length,
       status: "PENDING",
@@ -46,13 +68,14 @@ exports.createBooking = async (req, res) => {
         bookedBy: visitorId,
         host: place.host._id,
         place: placeId,
-        visitDate: vDate,
+        visitDate: passDate,
+        ticketAccessMode: accessMode,
         guest: {
           name: guest.name,
           email: guest.email || null,
           phone: guest.phone || null
         },
-        amountPaid: place.price,
+        amountPaid: perPassAmountPaid,
         status: place.price === 0 ? "APPROVED" : "PENDING",
         paymentStatus: place.price === 0 ? "FREE" : "PENDING",
         qrActive: false,
@@ -64,7 +87,7 @@ exports.createBooking = async (req, res) => {
     if (place.price === 0) {
       const approvedCountNow = await Pass.countDocuments({
         place: placeId,
-        visitDate: vDate,
+        visitDate: passDate,
         status: "APPROVED"
       });
 
@@ -111,10 +134,12 @@ exports.createBooking = async (req, res) => {
  
 for (let i = 0; i < passes.length; i++) {
   const pass = passes[i];
-  
+
   const qrToken = crypto.randomUUID();
   const qrImageBase64 = await generateQR({ passId: pass._id, qrToken });
   pass.qrImage = qrImageBase64;
+  pass.qrToken = qrToken;
+  pass.qrActive = true;
   await pass.save();
 
   if (pass.guest.email) {
@@ -129,19 +154,24 @@ for (let i = 0; i < passes.length; i++) {
         cid: `qr-${pass._id}`
       });
     }
-    
-    await sendPassEmail({
-      to: pass.guest.email,
-      subject: `Your Pass: ${place.name}`,
-      html: passEmailTemplate({
-        guest: pass.guest,
-        place,
-        visitDate: vDate,
-        passes: [pass],
-        isEmbedded: true 
-      }),
-      attachments: attachments
-    });
+
+    try {
+      await sendPassEmail({
+        to: pass.guest.email,
+        subject: `Your Pass: ${place.name}`,
+        html: passEmailTemplate({
+          guest: pass.guest,
+          place,
+          visitDate: pass.visitDate,
+          passes: [pass],
+          isEmbedded: true
+        }),
+        attachments: attachments
+      });
+    } catch (emailErr) {
+      // Don't fail booking if a single email fails (e.g., SMTP auth issue).
+      console.error(`❌ Guest email failed for ${pass.guest.email}:`, emailErr.message);
+    }
   }
 }
 
@@ -170,7 +200,7 @@ for (let i = 0; i < passes.length; i++) {
             html: passEmailTemplate({
               guest: { name: visitor.name, email: visitor.email },
               place,
-              visitDate: vDate,
+              visitDate: passDate,
               passes: passes 
             }),
             attachments: attachments
@@ -221,9 +251,41 @@ for (let i = 0; i < passes.length; i++) {
 exports.getMyPasses = async (req, res) => {
   try {
     const passes = await Pass.find({ bookedBy: req.user.id })
-      .populate("place", "name location image")
+      .populate("place", "name location image eventDates ticketAccessMode")
       .populate("host", "name email")
       .sort({ createdAt: -1 });
+
+    // Auto-expire approved passes whose visitDate is in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const updates = [];
+
+    for (const pass of passes) {
+      if (pass.status !== "APPROVED") continue;
+
+      if (pass.ticketAccessMode === "ALL_DAYS") {
+        // Expire after the event end date (inclusive scan is handled at scan time).
+        const end = pass.place?.eventDates?.end;
+        if (!end) continue;
+        const endDate = new Date(end);
+        endDate.setHours(0, 0, 0, 0);
+
+        if (endDate < today) {
+          pass.status = "EXPIRED";
+          pass.qrActive = false;
+          updates.push(pass.save());
+        }
+      } else if (pass.visitDate) {
+        const v = new Date(pass.visitDate);
+        v.setHours(0, 0, 0, 0);
+        if (v < today) {
+          pass.status = "EXPIRED";
+          pass.qrActive = false;
+          updates.push(pass.save());
+        }
+      }
+    }
+    if (updates.length) await Promise.allSettled(updates);
 
     res.json({ 
       success: true,

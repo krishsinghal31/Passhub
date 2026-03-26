@@ -7,7 +7,7 @@ const path = require("path");
 
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
-console.log("🔧 ENV CHECK:", {
+console.log("ENV CHECK:", {
   JWT_SECRET: !!process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
   MONGO_URI: !!process.env.MONGO_URI,
@@ -30,7 +30,7 @@ const seedSuperAdmin = require("./services/createadmin");
 const app = express();
 
 if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
-  console.error("❌ Missing required environment variables");
+  console.error("Missing required environment variables");
   process.exit(1);
 }
 
@@ -40,7 +40,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '10mb' }));
 
 app.use("/api/public", publicRouter);
-
 app.use("/api/auth", authRouter);
 app.use("/api/passes", passRouter);
 app.use("/api/admin", adminRouter);
@@ -53,7 +52,7 @@ app.use("/api/host-subscription", hostSubscriptionRouter);
 
 app.get("/", (req, res) => {
   res.json({ 
-    message: "🎫 Visitor Pass Management System Running",
+    message: "Visitor Pass Management System Running",
     version: "2.0",
     endpoints: {
       public: "/api/public",
@@ -79,7 +78,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("❌ Error:", err.stack);
+  console.error("Error:", err.stack);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || "Internal Server Error",
@@ -91,17 +90,17 @@ const PORT = process.env.PORT || 5000;
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
-    console.log("✅ MongoDB Connected");
+    console.log("MongoDB Connected");
     
     await seedSuperAdmin();
     
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
+      console.log(`Server running on port ${PORT}`);
+      console.log(`http://localhost:${PORT}`);
     });
   })
   .catch(err => {
-    console.error("❌ MongoDB connection failed", err);
+    console.error("MongoDB connection failed", err);
     process.exit(1);
   });
 

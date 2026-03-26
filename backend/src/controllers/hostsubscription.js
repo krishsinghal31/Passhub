@@ -18,8 +18,11 @@ exports.purchaseSubscription = async (req, res) => {
     }
 
     const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
     const end = new Date(start);
-    end.setDate(end.getDate() + plan.durationDays);
+    // Make duration inclusive: 1-day plan covers that whole day
+    end.setDate(end.getDate() + Math.max(1, plan.durationDays) - 1);
+    end.setHours(23, 59, 59, 999);
 
     const user = await User.findById(userId);
     

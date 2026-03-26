@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../utils/api';
 import BookingCard from '../../components/visitor/BookingCard';
-import { Calendar, Users, Ticket, Plus, TrendingUp, Clock, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Users, Ticket, Plus, TrendingUp, Clock, CheckCircle, ArrowRight, UserCircle2 } from 'lucide-react';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
@@ -18,33 +18,51 @@ const Dashboard = () => {
     hostedEvents: 0
   });
 
+  const [activeTab, setActiveTab] = useState('overview'); // overview | passes | bookings | hosted | profile
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get active passes (upcoming/active passes)
-        const passesRes = await api.get('/passes/my-passes');
-        if (passesRes.data.success) {
-          const activePasses = passesRes.data.passes || [];
-          setPasses(activePasses);
-          setStats(prev => ({ ...prev, activePasses: activePasses.length }));
+        // Faster: run requests in parallel
+        const [passesRes, bookingsRes, eventsRes] = await Promise.all([
+          api.get('/passes/my-passes'),
+          api.get('/passes/bookings'),
+          (user?.role === 'HOST' || user?.subscription?.isActive) ? api.get('/host/events') : Promise.resolve(null)
+        ]);
+
+        if (passesRes?.data?.success) {
+          const allPasses = passesRes.data.passes || [];
+          setPasses(allPasses);
+
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const active = allPasses.filter((p) => {
+            if (p.status !== 'APPROVED') return false;
+            if (p.ticketAccessMode === 'ALL_DAYS') {
+              const end = p.place?.eventDates?.end;
+              if (!end) return true;
+              const endDate = new Date(end);
+              endDate.setHours(0, 0, 0, 0);
+              return endDate >= today;
+            }
+            if (!p.visitDate) return true;
+            const v = new Date(p.visitDate);
+            v.setHours(0, 0, 0, 0);
+            return v >= today;
+          });
+          setStats(prev => ({ ...prev, activePasses: active.length }));
         }
 
-        // Get all bookings (complete history)
-        const bookingsRes = await api.get('/passes/bookings');
-        if (bookingsRes.data.success) {
+        if (bookingsRes?.data?.success) {
           const allBookings = bookingsRes.data.bookings || [];
           setBookings(allBookings);
           setStats(prev => ({ ...prev, totalBookings: allBookings.length }));
         }
 
-        // If user is a host with active subscription, get hosted events
-        if (user?.role === 'HOST' || user?.subscription?.isActive) {
-          const eventsRes = await api.get('/host/events');
-          if (eventsRes.data.success) {
-            const hostedEvents = eventsRes.data.events || [];
-            setEvents(hostedEvents);
-            setStats(prev => ({ ...prev, hostedEvents: hostedEvents.length }));
-          }
+        if (eventsRes?.data?.success) {
+          const hostedEvents = eventsRes.data.events || [];
+          setEvents(hostedEvents);
+          setStats(prev => ({ ...prev, hostedEvents: hostedEvents.length }));
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -73,14 +91,71 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-50 py-12 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-3">
-            Welcome back, {user?.name?.split(' ')[0] || 'User'}!
-          </h1>
-          <p className="text-gray-600 text-lg">Manage your bookings and events from here</p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-[2rem] bg-white border border-slate-200 shadow-sm overflow-hidden flex items-center justify-center">
+              {user?.profilePicture ? (
+                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <UserCircle2 size={26} className="text-indigo-600" />
+              )}
+            </div>
+            <div>
+              <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-2">
+                {user?.name ? `@${user.name.split(' ')[0]}` : 'Dashboard'}
+              </h1>
+              <p className="text-gray-600 text-lg">
+                Your PassHub profile & activity
+                {user?.role && (
+                  <span className="ml-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-xs font-black text-slate-600 uppercase tracking-widest">
+                    {user.role}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate('/profile')}
+              className="px-5 py-3 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all font-bold flex items-center gap-2"
+            >
+              <UserCircle2 size={18} /> Profile
+            </button>
+            {(user?.role === 'HOST' || user?.subscription?.isActive) && (
+              <button
+                onClick={() => navigate('/create-event')}
+                className="px-5 py-3 rounded-2xl bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 transition-all font-black flex items-center gap-2"
+              >
+                <Plus size={18} /> Create
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-3xl p-3 shadow-xl border border-slate-100 mb-8 flex flex-wrap gap-2">
+          {[
+            { id: 'overview', label: 'Overview' },
+            { id: 'passes', label: 'Passes' },
+            { id: 'bookings', label: 'Bookings' },
+            ...(user?.role === 'HOST' || user?.subscription?.isActive ? [{ id: 'hosted', label: 'Hosted' }] : [])
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
+                activeTab === t.id
+                  ? 'bg-indigo-600 text-white shadow-lg'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Stats Cards */}
+        {activeTab === 'overview' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <StatCard 
             icon={<Ticket className="text-indigo-600" size={24} />}
@@ -103,8 +178,10 @@ const Dashboard = () => {
             />
           )}
         </div>
+        )}
 
         {/* Active Passes Section */}
+        {activeTab === 'passes' && (
         <section className="bg-white rounded-3xl shadow-xl p-8 mb-8 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
@@ -121,10 +198,10 @@ const Dashboard = () => {
           {passes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {passes.map(pass => (
-                <div key={pass._id} className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border-2 border-indigo-100 hover:shadow-lg transition-all">
+                <div key={pass._id} className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-4 border-2 border-indigo-100 hover:shadow-lg transition-all">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="font-black text-lg text-gray-900 mb-1">
+                      <h3 className="font-black text-base text-gray-900 mb-1">
                         {pass.place?.name || 'Event'}
                       </h3>
                       <p className="text-sm text-gray-600">Guest: {pass.guest?.name}</p>
@@ -132,6 +209,7 @@ const Dashboard = () => {
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                       pass.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
                       pass.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                      pass.status === 'EXPIRED' ? 'bg-slate-200 text-slate-700' :
                       'bg-gray-100 text-gray-700'
                     }`}>
                       {pass.status}
@@ -139,18 +217,26 @@ const Dashboard = () => {
                   </div>
                   
                   {pass.qrImage && (
-                    <div className="mb-4 p-4 bg-white rounded-xl border-2 border-indigo-200">
+                    <div className="mb-3 p-3 bg-white rounded-xl border-2 border-indigo-200">
                       <img 
                         src={pass.qrImage} 
                         alt="QR Code" 
-                        className="w-full h-auto rounded-lg"
+                        className="w-full h-auto rounded-lg max-h-40 object-contain"
                       />
                     </div>
                   )}
                   
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Clock size={16} />
-                    <span>Visit: {new Date(pass.visitDate).toLocaleDateString()}</span>
+                    {pass.ticketAccessMode === 'ALL_DAYS' && pass.place?.eventDates?.start && pass.place?.eventDates?.end ? (
+                      <span>
+                        Valid:{' '}
+                        {new Date(pass.place.eventDates.start).toLocaleDateString()} -{' '}
+                        {new Date(pass.place.eventDates.end).toLocaleDateString()}
+                      </span>
+                    ) : (
+                      <span>Visit: {new Date(pass.visitDate).toLocaleDateString()}</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -168,8 +254,10 @@ const Dashboard = () => {
             </div>
           )}
         </section>
+        )}
 
         {/* Booking History Section */}
+        {activeTab === 'bookings' && (
         <section className="bg-white rounded-3xl shadow-xl p-8 mb-8 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
@@ -197,9 +285,10 @@ const Dashboard = () => {
             </div>
           )}
         </section>
+        )}
 
         {/* Hosted Events Section */}
-        {(user?.role === 'HOST' || user?.subscription?.isActive) && (
+        {activeTab === 'hosted' && (user?.role === 'HOST' || user?.subscription?.isActive) && (
           <section className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
@@ -241,7 +330,7 @@ const Dashboard = () => {
                         {event.status}
                       </span>
                       <button 
-                        onClick={() => navigate(`/places/${event._id}`)}
+                        onClick={() => navigate(`/manage-event/${event._id}`)}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold text-sm"
                       >
                         Manage

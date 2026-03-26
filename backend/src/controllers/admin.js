@@ -6,6 +6,7 @@ const Place = require("../models/place");
 const Security = require("../models/security");
 const Booking = require("../models/booking");
 const SubscriptionPlan = require("../models/subscriptionplan"); 
+const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sendAdminInviteMail } = require("../services/admininvitemail");
 const { sendPassEmail } = require("../services/email");
@@ -83,15 +84,37 @@ exports.inviteAdmin = async (req, res) => {
     const { email, name } = req.body;
 
     const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ 
-        success: false,
-        message: "User already exists" 
-      });
-    }
-
+    // If user already exists, upgrade to ADMIN (unless SUPER_ADMIN) and re-issue temp password
+    // This makes invites idempotent and avoids "already exists" hard-failure.
     const tempPassword = crypto.randomBytes(8).toString("hex");
     const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    if (existing) {
+      if (existing.role === "SUPER_ADMIN") {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot invite/modify SUPER_ADMIN"
+        });
+      }
+
+      existing.role = "ADMIN";
+      existing.password = passwordHash;
+      existing.isActive = true;
+      await existing.save();
+
+      await sendAdminInviteMail({ email, tempPassword });
+
+      return res.status(200).json({
+        success: true,
+        message: "User already existed. Role upgraded to ADMIN and new credentials sent.",
+        admin: {
+          _id: existing._id,
+          name: existing.name,
+          email: existing.email,
+          role: existing.role
+        }
+      });
+    }
 
     const admin = await User.create({
       name: name || "Admin User",
@@ -153,7 +176,7 @@ exports.disableAdmin = async (req, res) => {
       });
     }
 
-    // Prevent disabling super admin (though role check above should handle it)
+    // Prevent disabling super admin 
     if (admin.role === 'SUPER_ADMIN') {
       return res.status(403).json({
         success: false,
@@ -233,12 +256,7 @@ exports.disableUser = async (req, res) => {
 
 exports.getAllUpcomingEvents = async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const events = await Place.find({
-      "eventDates.end": { $gte: today }
-    })
+    const events = await Place.find({})
       .populate('host', 'name email subscription')
       .sort({ "eventDates.start": 1 });
 
@@ -254,6 +272,20 @@ exports.getAllUpcomingEvents = async (req, res) => {
           isActive: true
         });
 
+        const now = new Date();
+
+        // Derive status from fields that actually persist:
+        // - cancelled events: booking disabled
+        // - completed events: event end date is in the past
+        let computedStatus = "UPCOMING";
+        if (event.isBookingEnabled === false) {
+          computedStatus = "CANCELLED";
+        } else if (event.eventDates?.end && new Date(event.eventDates.end) < now) {
+          computedStatus = "COMPLETED";
+        }
+
+        const bookingEnabled = computedStatus === "UPCOMING" ? event.isBookingEnabled : false;
+
         return {
           _id: event._id,
           title: event.name,
@@ -264,9 +296,10 @@ exports.getAllUpcomingEvents = async (req, res) => {
           capacity: event.dailyCapacity,
           bookings: totalBookings,
           remainingSeats: event.dailyCapacity - totalBookings,
-          isBookingEnabled: event.isBookingEnabled,
+          isBookingEnabled: bookingEnabled,
           security: security,
-          price: event.price
+          price: event.price,
+          status: computedStatus
         };
       })
     );
@@ -411,7 +444,6 @@ exports.cancelEventByAdmin = async (req, res) => {
       });
     }
 
-    // Get all active passes
     const activePasses = await Pass.find({
       place: eventId,
       status: { $in: ['APPROVED', 'PENDING'] },
@@ -610,7 +642,6 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
-// NEW: Get booked seats for an event
 exports.getBookedSeats = async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -622,7 +653,6 @@ exports.getBookedSeats = async (req, res) => {
   }
 };
 
-// NEW: Create subscription plan
 exports.createSubscriptionPlan = async (req, res) => {
   try {
     if (req.user.role !== 'SUPER_ADMIN') {
@@ -648,7 +678,7 @@ exports.createSubscriptionPlan = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-// NEW: Get all subscription plans
+
 exports.getSubscriptionPlans = async (req, res) => {
   try {
     if (req.user.role !== 'SUPER_ADMIN') {
@@ -684,5 +714,29 @@ exports.toggleSubscriptionPlan = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// NEW: Delete subscription plan
+exports.deleteSubscriptionPlan = async (req, res) => {
+  try {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const { planId } = req.params;
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found' });
+    }
+
+    await SubscriptionPlan.deleteOne({ _id: planId });
+
+    return res.json({
+      success: true,
+      message: 'Plan removed successfully'
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

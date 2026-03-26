@@ -1,5 +1,5 @@
 // src/pages/admin/Dashboard.jsx 
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { Users, Activity, UserCog, BarChart3, UserPlus, Calendar, CreditCard } from 'lucide-react';
@@ -16,6 +16,14 @@ import SeatsStatusModal from '../../components/common/SeatsStatusModal';
 const AdminDashboard = () => {
   const { user, loading } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('overview');
+
+  const [adminCoverImage, setAdminCoverImage] = useState(() => {
+    return (
+      localStorage.getItem('admin_cover_image') ||
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80'
+    );
+  });
+  const adminCoverInputRef = useRef(null);
   
   // Data States
   const [users, setUsers] = useState([]);
@@ -222,14 +230,50 @@ const AdminDashboard = () => {
             </h1>
             <p className="text-slate-500 font-medium">System-wide monitoring and management</p>
           </div>
-          {user?.role === 'SUPER_ADMIN' && activeTab === 'admins' && (
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-slate-900 transition-all font-bold shadow-lg shadow-indigo-100"
-            >
-              <UserPlus size={18} /> Invite Admin
-            </button>
-          )}
+          <div className="flex items-center gap-6">
+            {user?.role === 'SUPER_ADMIN' && activeTab === 'admins' && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-slate-900 transition-all font-bold shadow-lg shadow-indigo-100"
+              >
+                <UserPlus size={18} /> Invite Admin
+              </button>
+            )}
+
+            <div className="relative hidden sm:block">
+              <img
+                src={adminCoverImage}
+                alt="Admin cover"
+                className="h-24 w-56 object-cover rounded-[1.25rem] shadow-lg border border-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => adminCoverInputRef.current?.click()}
+                className="absolute bottom-3 right-3 px-3 py-2 bg-white/90 hover:bg-white text-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md border border-slate-100"
+              >
+                Change
+              </button>
+              <input
+                ref={adminCoverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    const dataUrl = reader.result;
+                    if (typeof dataUrl === 'string') {
+                      setAdminCoverImage(dataUrl);
+                      localStorage.setItem('admin_cover_image', dataUrl);
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Stats Summary (Overview) */}
@@ -241,36 +285,8 @@ const AdminDashboard = () => {
             <StatCard title="Total Revenue" value={`₹${stats.totalRevenue}`} icon={<BarChart3 />} color="text-orange-600" bg="bg-orange-50" />
           </div>
         )} */}
-        // Find the "Stats Cards (Overview)" section and update the values to use the 'stats' state
-{activeTab === 'overview' && (
-  <div className="grid md:grid-cols-4 gap-6 mb-8">
-    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-      <Users className="w-10 h-10 mb-3 opacity-80" />
-      {/* ✅ CHANGE THIS: Use stats.totalUsers instead of users.length */}
-      <p className="text-3xl font-bold mb-1">{stats.totalUsers}</p>
-      <p className="text-blue-100">Total Users</p>
-    </div>
-
-    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-      <Activity className="w-10 h-10 mb-3 opacity-80" />
-      {/* ✅ CHANGE THIS: Use stats.activeSubscribers or totalEvents */}
-      <p className="text-3xl font-bold mb-1">{stats.totalEvents}</p>
-      <p className="text-green-100">Live Events</p>
-    </div>
-
-    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-      <UserCog className="w-10 h-10 mb-3 opacity-80" />
-      <p className="text-3xl font-bold mb-1">{stats.activeSubscribers}</p>
-      <p className="text-purple-100">Active Subs</p>
-    </div>
-
-    <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
-      <BarChart3 className="w-10 h-10 mb-3 opacity-80" />
-      <p className="text-3xl font-bold mb-1">₹{stats.totalRevenue}</p>
-      <p className="text-orange-100">Revenue</p>
-    </div>
-  </div>
-)}
+ 
+{/* Overview cards moved below tabs */}
 
         <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -279,7 +295,34 @@ const AdminDashboard = () => {
             <div className="py-20 text-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div></div>
           ) : (
             <div className="animate-in fade-in duration-500">
-              
+              {activeTab === 'overview' && (
+                <div className="grid md:grid-cols-4 gap-6 mb-8">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+                    <Users className="w-10 h-10 mb-3 opacity-80" />
+                    <p className="text-3xl font-bold mb-1">{stats.totalUsers}</p>
+                    <p className="text-blue-100">Total Users</p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+                    <Activity className="w-10 h-10 mb-3 opacity-80" />
+                    <p className="text-3xl font-bold mb-1">{stats.totalEvents}</p>
+                    <p className="text-green-100">Live Events</p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+                    <UserCog className="w-10 h-10 mb-3 opacity-80" />
+                    <p className="text-3xl font-bold mb-1">{stats.activeSubscribers}</p>
+                    <p className="text-purple-100">Active Subs</p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
+                    <BarChart3 className="w-10 h-10 mb-3 opacity-80" />
+                    <p className="text-3xl font-bold mb-1">₹{stats.totalRevenue}</p>
+                    <p className="text-orange-100">Revenue</p>
+                  </div>
+                </div>
+              )}
+
               {/* Users List */}
               {activeTab === 'users' && (
                 <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
@@ -348,16 +391,90 @@ const AdminDashboard = () => {
 
               {/* Plans Tab */}
               {activeTab === 'plans' && (
-                <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 text-center">
-                  <CreditCard className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                  <h3 className="text-xl font-black text-slate-800 mb-2">Plan Management</h3>
-                  <p className="text-slate-400 mb-8 max-w-sm mx-auto">Create and manage subscription tiers for hosts to publish events on the platform.</p>
-                  <button 
-                    onClick={() => setShowCreatePlanModal(true)}
-                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all"
-                  >
-                    + Create New Plan
-                  </button>
+                <div className="space-y-6">
+                  <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-black text-slate-800 mb-1">Plan Management</h3>
+                        <p className="text-slate-400">Create, toggle, and remove subscription plans.</p>
+                      </div>
+                      <button 
+                        onClick={() => setShowCreatePlanModal(true)}
+                        className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all"
+                      >
+                        + Create New Plan
+                      </button>
+                    </div>
+                  </div>
+
+                  {plans.length === 0 ? (
+                    <div className="bg-white rounded-[2.5rem] p-12 border border-slate-100 text-center">
+                      <CreditCard className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                      <p className="text-slate-500 font-semibold">No plans found.</p>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-3 gap-8">
+                      {plans.map((plan) => (
+                        <div key={plan._id} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100">
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                                {plan.isActive ? 'ACTIVE' : 'INACTIVE'}
+                              </p>
+                              <h4 className="text-xl font-black text-slate-800">{plan.name}</h4>
+                              <p className="text-slate-500 font-semibold mt-1">₹{plan.price} • {plan.durationDays} days</p>
+                            </div>
+                          </div>
+
+                          {plan.description && (
+                            <p className="text-sm text-slate-500 mb-4">{plan.description}</p>
+                          )}
+
+                          {Array.isArray(plan.features) && plan.features.length > 0 && (
+                            <ul className="text-sm text-slate-600 space-y-2 mb-6 list-disc list-inside">
+                              {plan.features.slice(0, 4).map((f, idx) => (
+                                <li key={idx}>{f}</li>
+                              ))}
+                            </ul>
+                          )}
+
+                          <div className="flex gap-3">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await api.patch(`/admin/subscription-plans/${plan._id}/toggle`);
+                                  if (res.data.success) fetchData();
+                                } catch (e) {
+                                  alert('Error: ' + (e.response?.data?.message || e.message));
+                                }
+                              }}
+                              className={`flex-1 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                plan.isActive
+                                  ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                              }`}
+                            >
+                              {plan.isActive ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Remove plan "${plan.name}"?`)) return;
+                                try {
+                                  const res = await api.delete(`/admin/subscription-plans/${plan._id}`);
+                                  if (res.data.success) fetchData();
+                                } catch (e) {
+                                  alert('Error: ' + (e.response?.data?.message || e.message));
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 transition-all"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -409,6 +526,7 @@ const AdminDashboard = () => {
           isOpen={showSeatsModal} 
           eventId={selectedEvent._id} 
           totalCapacity={selectedEvent.capacity} 
+          apiPath={`/admin/events/${selectedEvent._id}/booked-seats`}
           onClose={() => setShowSeatsModal(false)} 
         />
       )}

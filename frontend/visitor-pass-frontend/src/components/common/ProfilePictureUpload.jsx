@@ -1,12 +1,39 @@
  // src/components/common/ProfilePictureUpload.jsx
- import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Upload, X, User, Check } from 'lucide-react';
 
 const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) => {
   const [preview, setPreview] = useState(currentImage || null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+
+  const compressToDataUrl = (dataUrl, maxSize = 256, quality = 0.85) => {
+    return new Promise((resolve, reject) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+          const width = Math.max(1, Math.round(img.width * ratio));
+          const height = Math.max(1, Math.round(img.height * ratio));
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressed);
+        };
+        img.onerror = () => reject(new Error('Image compression failed'));
+        img.src = dataUrl;
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -29,11 +56,16 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) 
       setIsProcessing(true);
       try {
         await new Promise(resolve => setTimeout(resolve, 600));
-        
+
+        // LocalStorage quotas can be small; compress to avoid "not able to save".
+        const compressedPreview = await compressToDataUrl(preview, 256, 0.85);
+
         const storageKey = `profile_picture_${userId}`;
-        localStorage.setItem(storageKey, preview);
-        
-        await onImageUpdate(preview);
+
+        localStorage.setItem(storageKey, compressedPreview);
+
+        setPreview(compressedPreview);
+        await onImageUpdate(compressedPreview);
         
         onClose();
       } catch (error) {
@@ -44,6 +76,63 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) 
       }
     }
   };
+
+  const stopCamera = () => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    } catch (e) {
+      // ignore
+    }
+    setCameraActive(false);
+  };
+
+  const startCamera = async () => {
+    setCameraError('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera not supported on this device/browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      streamRef.current = stream;
+      setCameraActive(true);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+    } catch (e) {
+      setCameraError(e?.message || 'Unable to access camera.');
+      stopCamera();
+    }
+  };
+
+  const capturePhoto = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const w = video.videoWidth || 320;
+    const h = video.videoHeight || 320;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    stopCamera();
+    setPreview(dataUrl);
+  };
+
+  useEffect(() => {
+    return () => stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
@@ -79,39 +168,59 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) 
         </div>
 
         {/* Upload Options */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            className="flex flex-col items-center justify-center p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
-          >
-            <Camera className="w-8 h-8 text-slate-400 mb-2 group-hover:text-indigo-600 transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-600">Camera</span>
-          </button>
+        {!cameraActive ? (
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <button
+              type="button"
+              onClick={startCamera}
+              className="flex flex-col items-center justify-center p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+            >
+              <Camera className="w-8 h-8 text-slate-400 mb-2 group-hover:text-indigo-600 transition-colors" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-indigo-600">Camera</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-purple-500 hover:bg-purple-50 transition-all group"
-          >
-            <Upload className="w-8 h-8 text-slate-400 mb-2 group-hover:text-purple-600 transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-purple-600">Gallery</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center p-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-purple-500 hover:bg-purple-50 transition-all group"
+            >
+              <Upload className="w-8 h-8 text-slate-400 mb-2 group-hover:text-purple-600 transition-colors" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-purple-600">Gallery</span>
+            </button>
+          </div>
+        ) : (
+          <div className="mb-8">
+            <video
+              ref={videoRef}
+              className="w-full rounded-[2rem] border border-slate-100 shadow-sm bg-slate-50"
+              playsInline
+              autoPlay
+            />
+            {cameraError && <p className="text-red-600 text-xs font-bold mt-2">{cameraError}</p>}
+            <div className="flex gap-4 mt-4">
+              <button
+                type="button"
+                onClick={capturePhoto}
+                className="flex-1 px-4 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100"
+              >
+                Capture
+              </button>
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="flex-1 px-4 py-4 border-2 border-slate-100 text-slate-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Hidden File Inputs */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="user"
           onChange={handleFileSelect}
           className="hidden"
         />

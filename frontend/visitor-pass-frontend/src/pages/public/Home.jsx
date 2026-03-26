@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useMemo, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../utils/api';
 import EventCard from '../../components/common/EventCard';
-import { Search, MapPin, Calendar, Star, Shield, Users, Clock, ArrowRight, CheckCircle, Sparkles, TrendingUp } from 'lucide-react';
+import { Search, Calendar, Shield, Users, ArrowRight, CheckCircle, Sparkles, TrendingUp, X } from 'lucide-react';
 
 const Home = ({ setShowAuthModal }) => {
   const { user } = useContext(AuthContext);
@@ -32,10 +32,29 @@ const Home = ({ setShowAuthModal }) => {
     fetchHomeData();
   }, []);
 
-  const filteredEvents = events.filter(event => 
-    (event.title || event.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (event.place?.city || event.location || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const query = searchQuery.trim().toLowerCase();
+  const isSearching = query.length > 0;
+
+  const searchPool = useMemo(() => {
+    const all = [...(events || []), ...(popularEvents || []), ...(featuredEvents || [])];
+    const seen = new Set();
+    return all.filter((e) => {
+      const id = e?._id;
+      if (!id) return false;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [events, popularEvents, featuredEvents]);
+
+  const filteredEvents = useMemo(() => {
+    if (!isSearching) return events || [];
+    return searchPool.filter((event) => {
+      const title = (event.title || event.name || '').toLowerCase();
+      const loc = (event.place?.city || event.location || '').toLowerCase();
+      return title.includes(query) || loc.includes(query);
+    });
+  }, [events, isSearching, query, searchPool]);
 
   const handleGetStarted = () => {
     if (user) navigate('/dashboard');
@@ -69,7 +88,7 @@ const Home = ({ setShowAuthModal }) => {
           
           {/* Search Bar */}
           <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-2xl flex flex-col md:flex-row gap-3 max-w-3xl mx-auto border border-white/20">
-            <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl">
+            <div className="flex-1 flex items-center px-4 bg-slate-50 rounded-xl relative">
               <Search className="text-gray-400 mr-3" size={24} />
               <input 
                 type="text" 
@@ -78,6 +97,16 @@ const Home = ({ setShowAuthModal }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              {isSearching && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 p-2 rounded-full hover:bg-white transition-colors text-slate-500"
+                  aria-label="Clear search"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </div>
             <button 
               onClick={handleGetStarted}
@@ -96,7 +125,7 @@ const Home = ({ setShowAuthModal }) => {
 
       <div className="max-w-7xl mx-auto px-6 space-y-24 pb-24 -mt-16 relative z-20">
         {/* Popular Events Horizontal Scroll */}
-        {popularEvents.length > 0 && (
+        {!isSearching && popularEvents.length > 0 && (
           <section className="bg-white rounded-3xl shadow-2xl p-10 border border-gray-100">
             <div className="flex items-center gap-3 mb-8">
               <div className="p-3 bg-amber-100 rounded-2xl">
@@ -121,7 +150,9 @@ const Home = ({ setShowAuthModal }) => {
               <div className="p-3 bg-indigo-100 rounded-2xl">
                 <Calendar className="text-indigo-600" size={24} />
               </div>
-              <h2 className="text-3xl font-black text-gray-900">Upcoming Events</h2>
+              <h2 className="text-3xl font-black text-gray-900">
+                {isSearching ? 'Matching Events' : 'Upcoming Events'}
+              </h2>
             </div>
             <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-bold">
               {filteredEvents.length} Events Available
@@ -143,7 +174,9 @@ const Home = ({ setShowAuthModal }) => {
           ) : (
             <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200">
               <Search className="mx-auto text-gray-300 mb-4" size={48} />
-              <p className="text-gray-500 text-lg">No events found matching your search.</p>
+              <p className="text-gray-500 text-lg">
+                {isSearching ? 'No matching events.' : 'No events available right now.'}
+              </p>
             </div>
           )}
         </section>

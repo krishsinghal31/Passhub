@@ -65,14 +65,25 @@ const AdminEventCard = ({ event, onEventUpdate, onSeatsStatus }) => {  // Added 
             </div>
           </div>
           
-          {/* Booking Status Badge */}
+        {/* Status + Booking Badge */}
+        <div className="flex flex-col items-end gap-2">
           <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-            event.isBookingEnabled 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-red-100 text-red-700'
+            event.status === 'CANCELLED'
+              ? 'bg-red-100 text-red-700'
+              : event.status === 'COMPLETED'
+                ? 'bg-slate-100 text-slate-700'
+                : 'bg-blue-100 text-blue-700'
           }`}>
-            {event.isBookingEnabled ? 'Booking Open' : 'Booking Closed'}
+            {event.status || 'UPCOMING'}
           </div>
+          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+              event.isBookingEnabled 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-amber-100 text-amber-700'
+            }`}>
+              {event.isBookingEnabled ? 'Booking Open' : 'Booking Closed'}
+            </div>
+        </div>
         </div>
 
         {/* Host Info */}
@@ -145,13 +156,15 @@ const AdminEventCard = ({ event, onEventUpdate, onSeatsStatus }) => {  // Added 
               Seats Status
             </button>
           )}
-          <button
-            onClick={() => setShowCancelConfirm(true)}
-            className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-semibold border border-red-200 flex items-center gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Cancel Event
-          </button>
+          {event.status !== 'CANCELLED' && event.status !== 'COMPLETED' && (
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-semibold border border-red-200 flex items-center gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              Cancel Event
+            </button>
+          )}
         </div>
       </div>
 

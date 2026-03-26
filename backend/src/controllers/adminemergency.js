@@ -91,9 +91,7 @@ exports.cancelEvent = async (req, res) => {
     const refundedPasses = [];
     const affectedBookings = new Map();
 
-    // Process all passes for 100% refund
     for (const pass of activePasses) {
-      // Calculate 100% refund (ignore refund policy for event cancellation)
       const refundAmount = pass.price || 0;
       totalRefundAmount += refundAmount;
 

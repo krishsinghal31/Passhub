@@ -1,13 +1,13 @@
 // src/pages/admin/ManageEvent.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Users, DollarSign, ToggleLeft, ToggleRight, Shield, XCircle, Eye } from 'lucide-react'; // Added Eye for Seats Status
+import { Calendar, MapPin, Users, DollarSign, ToggleLeft, ToggleRight, Shield, XCircle, Eye } from 'lucide-react'; 
 import api from '../../utils/api';
 import PageWrapper from '../../components/common/PageWrapper';
 import BackButton from '../../components/common/BackButton';
 import SecurityPersonnelCard from '../../components/visitor/SecurityPersonnelCard';
 import ConfirmModal from '../../components/common/ConfirmModal';
-import SeatsStatusModal from '../../components/common/SeatsStatusModal'; // Added import
+import SeatsStatusModal from '../../components/common/SeatsStatusModal'; 
 
 const AdminManageEvent = () => {
   const { eventId } = useParams();
@@ -79,7 +79,7 @@ const AdminManageEvent = () => {
     }
   };
 
-  const handleSeatsStatus = () => { // Added handler
+  const handleSeatsStatus = () => { 
     setShowSeatsModal(true);
   };
 

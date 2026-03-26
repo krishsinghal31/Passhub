@@ -39,79 +39,95 @@ exports.confirmPayment = async (req, res) => {
     }
 
     const place = passes[0].place;
-    const visitDate = passes[0].visitDate;
 
-    const approvedCount = await Pass.countDocuments({
-      place: place._id,
-      visitDate,
-      status: "APPROVED"
-    });
-
-    if (approvedCount + passes.length > place.dailyCapacity) {
-      return res.status(400).json({ 
-        success: false,
-        message: "Capacity full. Please try a different date." 
-      });
-    }
+    // Support multi-day (ALL_DAYS) bookings by capacity-checking per `visitDate`
+    // and assigning slot numbers per day.
+    const groupedByDate = passes.reduce((acc, pass) => {
+      const d = new Date(pass.visitDate);
+      d.setHours(0, 0, 0, 0);
+      const key = d.toISOString().slice(0, 10);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(pass);
+      return acc;
+    }, {});
 
     const passesWithQR = [];
 
-    for (let i = 0; i < passes.length; i++) {
-      const pass = passes[i];
-      const qrToken = crypto.randomUUID();
+    for (const dateKey of Object.keys(groupedByDate)) {
+      const group = groupedByDate[dateKey];
+      const groupVisitDate = new Date(group[0].visitDate);
+      groupVisitDate.setHours(0, 0, 0, 0);
 
-      pass.status = "APPROVED";
-      pass.paymentStatus = "PAID";
-      pass.slotNumber = approvedCount + i + 1;
-      pass.qrToken = qrToken;
-      pass.qrActive = true;
-
-      pass.refundSnapshot = {
-        isRefundable: place.refundPolicy.isRefundable,
-        beforeVisitPercent: place.refundPolicy.beforeVisitPercent,
-        sameDayPercent: place.refundPolicy.sameDayPercent,
-        description: place.refundPolicy.description
-      };
-
-      // Generate QR with SHORT data
-      const qrImage = await generateQR({
-        passId: pass._id.toString(),
-        qrToken: qrToken
+      const approvedCount = await Pass.countDocuments({
+        place: place._id,
+        visitDate: groupVisitDate,
+        status: "APPROVED"
       });
 
-      pass.qrImage = qrImage;
-      await pass.save();
+      if (approvedCount + group.length > place.dailyCapacity) {
+        return res.status(400).json({
+          success: false,
+          message: "Capacity full for one of the selected dates."
+        });
+      }
 
-      passesWithQR.push(pass);
+      for (let i = 0; i < group.length; i++) {
+        const pass = group[i];
+        const qrToken = crypto.randomUUID();
 
-      if (pass.guest.email) {
-        try {
-          // Convert base64 QR image to attachment
-          const attachments = [];
-          if (pass.qrImage && pass.qrImage.startsWith('data:image')) {
-            const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
-            attachments.push({
-              filename: `qr-pass-${pass._id}.png`,
-              content: base64Data,
-              encoding: 'base64',
-              cid: `qr-${pass._id}`
+        pass.status = "APPROVED";
+        pass.paymentStatus = "PAID";
+        pass.slotNumber = approvedCount + i + 1;
+        pass.qrToken = qrToken;
+        pass.qrActive = true;
+
+        pass.refundSnapshot = {
+          isRefundable: place.refundPolicy.isRefundable,
+          beforeVisitPercent: place.refundPolicy.beforeVisitPercent,
+          sameDayPercent: place.refundPolicy.sameDayPercent,
+          description: place.refundPolicy.description
+        };
+
+        // Generate QR with short data: passId|qrToken
+        const qrImage = await generateQR({
+          passId: pass._id.toString(),
+          qrToken: qrToken
+        });
+
+        pass.qrImage = qrImage;
+        await pass.save();
+
+        passesWithQR.push(pass);
+
+        if (pass.guest.email) {
+          try {
+            // Convert base64 QR image to attachment
+            const attachments = [];
+            if (pass.qrImage && pass.qrImage.startsWith('data:image')) {
+              const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
+              attachments.push({
+                filename: `qr-pass-${pass._id}.png`,
+                content: base64Data,
+                encoding: 'base64',
+                cid: `qr-${pass._id}`
+              });
+            }
+
+            await sendPassEmail({
+              to: pass.guest.email,
+              subject: `Your Pass for ${place.name}`,
+              html: passEmailTemplate({
+                guest: pass.guest,
+                place,
+                visitDate: pass.visitDate,
+                passes: [pass] // Send only this guest's pass
+              }),
+              attachments: attachments
             });
+            console.log(`✅ Pass email sent to: ${pass.guest.email}`);
+          } catch (emailError) {
+            console.error(`❌ Failed to send email to ${pass.guest.email}:`, emailError);
           }
-          
-          await sendPassEmail({
-            to: pass.guest.email,
-            subject: `Your Pass for ${place.name}`,
-            html: passEmailTemplate({
-              guest: pass.guest,
-              place,
-              visitDate,
-              passes: [pass] // Send only this guest's pass
-            }),
-            attachments: attachments
-          });
-          console.log(`✅ Pass email sent to: ${pass.guest.email}`);
-        } catch (emailError) {
-          console.error(`❌ Failed to send email to ${pass.guest.email}:`, emailError);
         }
       }
     }
@@ -147,7 +163,7 @@ exports.confirmPayment = async (req, res) => {
           html: passEmailTemplate({
             guest: passes[0].bookedBy,
             place,
-            visitDate,
+            visitDate: place.ticketAccessMode === "ALL_DAYS" ? place.eventDates.start : passes[0].visitDate,
             passes: passesWithQR // Send all passes
           }),
           attachments: attachments

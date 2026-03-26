@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { Calendar, MapPin, Image, IndianRupee, Users, Shield, Percent, FileText, Save, X } from 'lucide-react';
@@ -10,6 +10,7 @@ const EventForm = () => {
     location: '', 
     image: '',
     eventDates: { start: '', end: '' }, 
+    ticketAccessMode: 'SELECT_DATE', // for multi-day events
     price: 0,
     dailyCapacity: 100,
     refundPolicy: {
@@ -21,11 +22,24 @@ const EventForm = () => {
   });
   const [loading, setLoading] = useState(false);
 
+  const isMultiDayEvent = useMemo(() => {
+    if (!form.eventDates?.start || !form.eventDates?.end) return false;
+    const start = new Date(form.eventDates.start);
+    const end = new Date(form.eventDates.end);
+    // if end is after start => more than 1 day
+    return end > start;
+  }, [form.eventDates?.start, form.eventDates?.end]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api.post('/host/place', form);
+      const payload = {
+        ...form,
+        ticketAccessMode: isMultiDayEvent ? form.ticketAccessMode : 'SELECT_DATE'
+      };
+
+      const res = await api.post('/host/place', payload);
       if (res.data.success) {
         alert('Event created successfully!');
         navigate('/dashboard');
@@ -125,6 +139,57 @@ const EventForm = () => {
                 />
               </div>
             </div>
+
+            {/* Ticket Access Mode (only for multi-day events) */}
+            {isMultiDayEvent && (
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="text-indigo-600" size={20} />
+                  <h3 className="text-sm font-black text-gray-700">Ticket Access Mode</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-5">
+                  Choose whether visitors get entry for <strong>all days</strong> or only the <strong>selected date</strong>.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, ticketAccessMode: 'ALL_DAYS' })}
+                    className={`text-left p-4 rounded-xl border transition-all ${
+                      form.ticketAccessMode === 'ALL_DAYS'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg'
+                        : 'bg-white border-gray-200 text-gray-800 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <div className="text-[10px] font-black uppercase tracking-widest">
+                      All Days Access
+                    </div>
+                    <div className="font-black mt-2">QR for every date</div>
+                    <div className="text-sm opacity-90 mt-1">
+                      Visitor can enter on each day of the event.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, ticketAccessMode: 'SELECT_DATE' })}
+                    className={`text-left p-4 rounded-xl border transition-all ${
+                      form.ticketAccessMode === 'SELECT_DATE'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg'
+                        : 'bg-white border-gray-200 text-gray-800 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <div className="text-[10px] font-black uppercase tracking-widest">
+                      Selected Date Only
+                    </div>
+                    <div className="font-black mt-2">QR for one day</div>
+                    <div className="text-sm opacity-90 mt-1">
+                      Visitor selects a date during booking.
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Price and Capacity */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

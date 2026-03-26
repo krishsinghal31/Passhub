@@ -4,29 +4,6 @@ const Pass = require("../models/pass");
 const Booking = require("../models/booking");
 const mongoose = require("mongoose");
 
-// exports.getPeakActivity = async (req, res) => {
-//   try {
-//     const data = await ScanLog.aggregate([
-//       {
-//         $group: {
-//           _id: { $hour: "$scannedAt" },
-//           count: { $sum: 1 }
-//         }
-//       },
-//       { $sort: { "_id": 1 } }
-//     ]);
-
-//     res.json({ 
-//       success: true,
-//       data 
-//     });
-//   } catch (error) {
-//     res.status(500).json({ 
-//       success: false,
-//       message: error.message 
-//     });
-//   }
-// };
 exports.getPeakActivity = async (req, res) => {
   try {
     const data = await ScanLog.aggregate([

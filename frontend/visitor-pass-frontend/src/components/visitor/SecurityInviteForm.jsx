@@ -1,6 +1,7 @@
 // frontend/visitor-pass-frontend/src/components/visitor/SecurityInviteForm.jsx
 import React, { useState } from 'react';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
 
 const SecurityInviteForm = ({ placeId }) => {
   const [email, setEmail] = useState('');
@@ -9,9 +10,9 @@ const SecurityInviteForm = ({ placeId }) => {
     e.preventDefault();
     try {
       await api.post(`/host/places/${placeId}/invite-security`, { email });
-      alert('Security invited!');
+      toast.success('Security invited successfully');
     } catch (err) {
-      alert('Error: ' + err.response?.data?.message);
+      toast.error(err.response?.data?.message || 'Failed to invite security');
     }
   };
 

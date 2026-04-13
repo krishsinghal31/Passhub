@@ -1,6 +1,7 @@
 // frontend/visitor-pass-frontend/src/components/admin/ActionModal.jsx
 import React, { useState } from 'react';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
 
 const ActionModal = ({ type, id, onClose }) => {
   const [reason, setReason] = useState('');
@@ -8,9 +9,10 @@ const ActionModal = ({ type, id, onClose }) => {
   const handleSubmit = async () => {
     try {
       if (type === 'disableHost') await api.post(`/admin/hosts/${id}/disable`, { reason });
+      toast.success('Action completed successfully');
       onClose();
     } catch (err) {
-      alert('Error: ' + err.response?.data?.message);
+      toast.error(err.response?.data?.message || 'Action failed');
     }
   };
 

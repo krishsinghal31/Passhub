@@ -28,7 +28,7 @@ const EventDetails = () => {
   }, [placeId]);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#020617]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
   );
@@ -43,7 +43,7 @@ const EventDetails = () => {
   };
 
   return (
-    <PageWrapper className="min-h-screen bg-white pb-20">
+    <PageWrapper className="min-h-screen bg-[#020617] text-slate-100 pb-20">
       {/* HERO SECTION */}
       <div className="relative h-[50vh] w-full overflow-hidden">
         <img
@@ -71,45 +71,45 @@ const EventDetails = () => {
         {/* LEFT: CONTENT */}
         <div className="lg:col-span-2 space-y-10">
           <div>
-            <h3 className="text-2xl font-black text-slate-800 mb-4 tracking-tight">About the Event</h3>
-            <p className="text-slate-600 leading-relaxed text-lg">
+            <h3 className="text-2xl font-black text-slate-100 mb-4 tracking-tight">About the Event</h3>
+            <p className="text-slate-300 leading-relaxed text-lg">
               {event.description || `Experience an exclusive gathering at ${event.name}. This event features top-tier facilities and a seamless entry process via our digital pass system.`}
             </p>
           </div>
 
-          <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100">
-            <h3 className="text-xl font-black text-slate-800 mb-6 tracking-tight">Refund & Entry Policy</h3>
+          <div className="bg-slate-900/50 rounded-[2rem] p-8 border border-slate-800">
+            <h3 className="text-xl font-black text-slate-100 mb-6 tracking-tight">Refund & Entry Policy</h3>
             {event.refundPolicy?.isRefundable ? (
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-2xl border border-slate-200">
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Before Visit</p>
+                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
+                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Before Visit</p>
                   <p className="text-2xl font-black text-indigo-600">{event.refundPolicy.beforeVisitPercent}% Refund</p>
                 </div>
-                <div className="bg-white p-4 rounded-2xl border border-slate-200">
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Same Day</p>
+                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700">
+                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Same Day</p>
                   <p className="text-2xl font-black text-indigo-600">{event.refundPolicy.sameDayPercent}% Refund</p>
                 </div>
-                <p className="col-span-full text-sm text-slate-500 italic">{event.refundPolicy.description}</p>
+                <p className="col-span-full text-sm text-slate-400 italic">{event.refundPolicy.description}</p>
               </div>
             ) : (
-              <p className="text-slate-500">Tickets for this event are non-refundable.</p>
+              <p className="text-slate-400">Tickets for this event are non-refundable.</p>
             )}
           </div>
         </div>
 
         {/* RIGHT: BOOKING CARD */}
         <div className="relative">
-          <div className="sticky top-24 bg-white rounded-[2.5rem] shadow-2xl shadow-indigo-100 p-8 border border-slate-100 space-y-6">
+          <div className="sticky top-24 bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] shadow-2xl p-8 border border-slate-800 space-y-6">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ticket Price</p>
-                <h4 className="text-4xl font-black text-slate-800 flex items-center gap-1">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Ticket Price</p>
+                <h4 className="text-4xl font-black text-slate-100 flex items-center gap-1">
                    <IndianRupee size={28} /> {event.price}
                 </h4>
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-black uppercase text-indigo-600 tracking-widest mb-1">Availability</p>
-                <p className="font-bold text-slate-700">{event.remainingCapacity} Slots Left</p>
+                <p className="font-bold text-slate-200">{event.remainingCapacity} Slots Left</p>
               </div>
             </div>
 
@@ -118,24 +118,29 @@ const EventDetails = () => {
                 disabled={!event.isBookingEnabled}
                 onClick={() => navigate(`/book/${placeId}`)}
                 className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2
-                  ${event.isBookingEnabled ? 'bg-indigo-600 text-white hover:bg-slate-900 shadow-xl shadow-indigo-100' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                  ${event.isBookingEnabled ? 'bg-cyan-500 text-slate-950 hover:bg-cyan-400 shadow-xl' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
               >
                 {event.isBookingEnabled ? (
                   <>Secure Your Pass <ArrowRight size={18} /></>
                 ) : 'Booking Closed'}
               </button>
 
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-2">Security Entrance Gateway</p>
+                <p className="text-xs text-slate-300">Authorized security staff can access scanning and activity tools from this portal.</p>
+              </div>
+
               {/* STAFF ENTRY BUTTON */}
               <button
                 onClick={() => navigate('/security/login', { state: { placeId, placeName: event.name } })}
-                className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest border-2 border-slate-900 text-slate-900 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest border-2 border-slate-700 text-slate-100 hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
               >
-                <Shield size={18} /> Staff Entry
+                <Shield size={18} /> Open Security Gateway
               </button>
             </div>
 
-            <div className="pt-4 border-t border-slate-100">
-               <div className="flex items-center gap-3 text-slate-500">
+            <div className="pt-4 border-t border-slate-800">
+               <div className="flex items-center gap-3 text-slate-400">
                  <Info size={16} />
                  <p className="text-[11px] font-medium leading-tight">Digital QR pass will be sent to your email after successful payment.</p>
                </div>

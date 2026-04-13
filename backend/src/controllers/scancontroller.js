@@ -38,27 +38,47 @@ exports.scanPass = async (req, res) => {
 
     const [passId, qrToken] = qrParts;
 
-    const pass = await Pass.findById(passId)
-      .populate("place")
-      .populate("guest");
+    const pass = await Pass.findById(passId).populate("place");
+
+    const logFailedScan = async (reason) => {
+      if (!pass) return;
+      try {
+        await ScanLog.create({
+          pass: pass._id,
+          visitor: pass.bookedBy,
+          host: pass.host || null,
+          place: pass.place?._id || placeId,
+          scannedBy: req.user.id,
+          scanType: "ENTRY",
+          status: "FAILED",
+          failureReason: reason
+        });
+      } catch (e) {
+        console.error("Failed to write failed scan log:", e.message);
+      }
+    };
 
     if (!pass) {
       return res.status(404).json({ success: false, message: "Pass not found in system" });
     }
 
     if (pass.place._id.toString() !== placeId) {
+      await logFailedScan("Pass scanned at wrong event");
       return res.status(403).json({ success: false, message: "This pass is for a different venue/event." });
     }
 
-    if (pass.qrToken.trim() !== qrToken.trim()) {
+    if (!pass.qrToken || pass.qrToken.trim() !== qrToken.trim()) {
+       await logFailedScan("QR token mismatch");
        return res.status(400).json({ success: false, message: "Security Alert: QR Token mismatch. Possible outdated or tampered pass." });
     }
 
     if (!pass.qrActive) {
+      await logFailedScan("QR deactivated");
       return res.status(400).json({ success: false, message: "This QR code has been deactivated." });
     }
 
     if (pass.status !== "APPROVED") {
+      await logFailedScan(`Pass status ${pass.status}`);
       return res.status(400).json({ success: false, message: `Access Denied: Pass status is ${pass.status}` });
     }
 
@@ -79,6 +99,7 @@ exports.scanPass = async (req, res) => {
       if (today.getTime() < start.getTime() || today.getTime() > end.getTime()) {
         const formattedStart = start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const formattedEnd = end.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        await logFailedScan("Outside valid date window");
         return res.status(400).json({
           success: false,
           message: `Invalid Date: Pass is valid from ${formattedStart} to ${formattedEnd}.`
@@ -92,6 +113,7 @@ exports.scanPass = async (req, res) => {
         const formattedDate = visitDate.toLocaleDateString('en-US', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
+        await logFailedScan("Visit date mismatch");
         return res.status(400).json({
           success: false,
           message: `Invalid Date: Pass is valid for ${formattedDate}.`
@@ -100,10 +122,12 @@ exports.scanPass = async (req, res) => {
     }
 
     if (pass.checkInTime && !pass.checkOutTime) {
+      await logFailedScan("Already checked in");
       return res.status(400).json({ success: false, message: "Security Alert: Visitor is already checked in." });
     }
 
     if (pass.checkOutTime) {
+      await logFailedScan("Already checked out");
       return res.status(400).json({ success: false, message: "Access Expired: Visitor has already checked out." });
     }
 
@@ -111,8 +135,10 @@ exports.scanPass = async (req, res) => {
     await pass.save();
 
     await ScanLog.create({
-      pass: passId,
-      place: placeId,
+      pass: pass._id,
+      visitor: pass.bookedBy,
+      host: pass.host || null,
+      place: pass.place?._id || placeId,
       scannedBy: req.user.id,
       scanType: "ENTRY",
       status: "SUCCESS"
@@ -171,10 +197,7 @@ exports.getSecurityDashboard = async (req, res) => {
     });
 
     const recentScans = await ScanLog.find({ place: placeId })
-      .populate({
-        path: 'pass',
-        populate: { path: 'guest', select: 'name' }
-      })
+      .populate('pass')
       .sort({ scannedAt: -1 })
       .limit(10);
 
@@ -212,10 +235,7 @@ exports.getSecurityActivity = async (req, res) => {
       place: placeId,
       scannedAt: { $gte: targetDate, $lt: nextDay }
     })
-    .populate({
-        path: 'pass',
-        populate: { path: 'guest', select: 'name' }
-    })
+    .populate('pass')
     .sort({ scannedAt: -1 });
 
     res.json({

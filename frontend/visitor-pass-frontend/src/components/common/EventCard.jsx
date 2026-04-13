@@ -6,7 +6,12 @@ const EventCard = ({ event }) => {
   const navigate = useNavigate();
   
   const eventName = event.title || event.name;
-  const eventImage = event.place?.images?.[0] || event.image;
+  const eventImage =
+    event.image ||
+    event.images?.[0] ||
+    event.place?.image ||
+    event.place?.images?.[0] ||
+    null;
   const eventLocation = event.place?.city || event.location;
   const eventPrice = event.price || 0;
   const availableSeats = event.availableSeats || event.remainingCapacity;
@@ -22,7 +27,7 @@ const EventCard = ({ event }) => {
   };
 
   return (
-    <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-indigo-200 transform hover:-translate-y-1">
+    <div className="group bg-slate-900/70 backdrop-blur-md rounded-2xl shadow-xl transition-all duration-300 overflow-hidden border border-slate-800 hover:border-cyan-500/40 transform hover:-translate-y-1">
       <div className="relative overflow-hidden">
         <img
           src={eventImage || 'https://images.unsplash.com/photo-1540575861501-7cf05a4b125a?auto=format&fit=crop&w=800&q=80'}
@@ -36,8 +41,8 @@ const EventCard = ({ event }) => {
         <div className="absolute top-4 right-4">
           <div className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${
             eventPrice === 0 
-              ? 'bg-green-500 text-white' 
-              : 'bg-indigo-600 text-white'
+              ? 'bg-emerald-500 text-slate-950'
+              : 'bg-cyan-500 text-slate-950'
           }`}>
             {eventPrice === 0 ? 'Free' : `₹${eventPrice}`}
           </div>
@@ -52,19 +57,19 @@ const EventCard = ({ event }) => {
       </div>
 
       <div className="p-6">
-        <h3 className="text-xl font-black text-gray-800 mb-3 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+        <h3 className="text-xl font-black text-slate-100 mb-3 line-clamp-2 group-hover:text-cyan-400 transition-colors">
           {eventName}
         </h3>
         
         <div className="space-y-2.5 mb-5">
-          <div className="flex items-center text-gray-600">
-            <MapPin className="w-4 h-4 mr-2 text-indigo-500 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{eventLocation}</span>
+          <div className="flex items-center text-slate-400">
+            <MapPin className="w-4 h-4 mr-2 text-cyan-500 flex-shrink-0" />
+            <span className="text-sm font-medium truncate">{eventLocation || 'Location TBD'}</span>
           </div>
           
           {eventDate && (
-            <div className="flex items-center text-gray-600">
-              <Calendar className="w-4 h-4 mr-2 text-green-500 flex-shrink-0" />
+            <div className="flex items-center text-slate-400">
+              <Calendar className="w-4 h-4 mr-2 text-emerald-500 flex-shrink-0" />
               <span className="text-sm font-medium">
                 {formatDate(eventDate)}
                 {endDate && eventDate !== endDate && ` - ${formatDate(endDate)}`}
@@ -72,8 +77,8 @@ const EventCard = ({ event }) => {
             </div>
           )}
           
-          <div className="flex items-center text-gray-600">
-            <Users className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
+          <div className="flex items-center text-slate-400">
+            <Users className="w-4 h-4 mr-2 text-orange-400 flex-shrink-0" />
             <span className="text-sm font-medium">
               {availableSeats !== undefined && totalCapacity !== undefined
                 ? `${availableSeats} of ${totalCapacity} seats available`
@@ -82,16 +87,16 @@ const EventCard = ({ event }) => {
           </div>
         </div>
 
-        <div className="flex gap-3 pt-4 border-t border-gray-100">
+        <div className="flex gap-3 pt-4 border-t border-slate-800">
           <button
             onClick={() => navigate(`/book/${eventId}`)}
-            className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl hover:bg-indigo-700 transition-all font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+            className="flex-1 bg-cyan-500 text-slate-950 px-4 py-3 rounded-xl hover:bg-cyan-400 transition-all font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
           >
             Book Now <ArrowRight size={16} />
           </button>
           <button
             onClick={() => navigate(`/places/${eventId}`)}
-            className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-semibold border border-gray-200"
+            className="px-4 py-3 bg-slate-800 text-slate-200 rounded-xl hover:bg-slate-700 transition-all font-semibold border border-slate-700"
           >
             Details
           </button>

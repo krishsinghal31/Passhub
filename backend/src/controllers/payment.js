@@ -52,6 +52,8 @@ exports.confirmPayment = async (req, res) => {
     }, {});
 
     const passesWithQR = [];
+    let emailFailures = 0;
+    let emailAttempts = 0;
 
     for (const dateKey of Object.keys(groupedByDate)) {
       const group = groupedByDate[dateKey];
@@ -100,6 +102,7 @@ exports.confirmPayment = async (req, res) => {
         passesWithQR.push(pass);
 
         if (pass.guest.email) {
+          emailAttempts += 1;
           try {
             // Convert base64 QR image to attachment
             const attachments = [];
@@ -126,6 +129,7 @@ exports.confirmPayment = async (req, res) => {
             });
             console.log(`✅ Pass email sent to: ${pass.guest.email}`);
           } catch (emailError) {
+            emailFailures += 1;
             console.error(`❌ Failed to send email to ${pass.guest.email}:`, emailError);
           }
         }
@@ -143,6 +147,7 @@ exports.confirmPayment = async (req, res) => {
     // ✅ FIXED: Send summary email to booker with ALL QR codes
     const visitorEmail = passes[0].bookedBy.email;
     if (visitorEmail) {
+      emailAttempts += 1;
       try {
         // Convert all QR images to attachments
         const attachments = passesWithQR
@@ -170,13 +175,20 @@ exports.confirmPayment = async (req, res) => {
         });
         console.log(`✅ Summary email sent to: ${visitorEmail}`);
       } catch (emailError) {
+        emailFailures += 1;
         console.error(`❌ Failed to send summary email:`, emailError);
       }
     }
 
     res.json({
       success: true,
-      message: "Payment confirmed. Passes generated and emailed.",
+      message: emailFailures > 0
+        ? `Payment confirmed. Passes generated. ${emailFailures}/${emailAttempts} email(s) failed.`
+        : "Payment confirmed. Passes generated and emailed.",
+      emailStatus: {
+        attempted: emailAttempts,
+        failed: emailFailures
+      },
       bookingId,
       passes: passesWithQR.map(p => ({
         passId: p._id,

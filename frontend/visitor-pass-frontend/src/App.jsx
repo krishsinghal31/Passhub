@@ -26,6 +26,7 @@ import AdminManageEvent from './pages/admin/ManageEvent';
 import EditEvent from './pages/visitor/EditEvent';
 import SecurityScanner from './pages/security/SecurityScanner';
 import PaymentPage from './pages/visitor/PaymentPage';
+import { Toaster } from 'react-hot-toast';
 
 const App = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -61,6 +62,7 @@ const App = () => {
               <Route path="/security/dashboard/:placeId" element={<SecurityDashboard />} />
               <Route path="/security/activity/:placeId" element={<SecurityActivityLog />} />
               <Route path="/security/change-password" element={<SecurityChangePassword />} />
+              <Route path="/change-password" element={<SecurityChangePassword />} />
               
               {/* Shared Routes */}
               <Route path="/subscriptions" element={<Subscriptions />} />
@@ -71,6 +73,19 @@ const App = () => {
             </Routes>
           </main>
           <Footer />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 2500,
+              style: {
+                background: '#111827',
+                color: '#fff',
+                border: '1px solid #374151',
+                borderRadius: '14px',
+                fontWeight: 600,
+              },
+            }}
+          />
           <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
         </Router>
       </AuthProvider>

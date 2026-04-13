@@ -5,6 +5,7 @@ import api from '../../utils/api';
 import PageWrapper from '../../components/common/PageWrapper';
 import BackButton from '../../components/common/BackButton';
 import { Save, MapPin, Image, DollarSign, Shield } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const EditEvent = () => {
   const { eventId } = useParams();
@@ -13,6 +14,7 @@ const EditEvent = () => {
     name: '',
     location: '',
     image: '',
+    description: '',
     price: 0,
     refundPolicy: {
       isRefundable: true,
@@ -37,6 +39,7 @@ const EditEvent = () => {
           name: place.name,
           location: place.location,
           image: place.image || '',
+          description: place.description || '',
           price: place.price,
           refundPolicy: place.refundPolicy || {
             isRefundable: true,
@@ -48,7 +51,7 @@ const EditEvent = () => {
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to load event');
+      toast.error('Failed to load event');
       navigate('/dashboard');
     } finally {
       setLoading(false);
@@ -62,11 +65,11 @@ const EditEvent = () => {
     try {
       const res = await api.put(`/host/places/${eventId}/details-notify`, form);
       if (res.data.success) {
-        alert(`Event updated! ${res.data.notified} visitors notified of changes.`);
+        toast.success(`Event updated. ${res.data.notified} visitors notified.`);
         navigate('/dashboard');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     } finally {
       setSaving(false);
     }
@@ -132,6 +135,17 @@ const EditEvent = () => {
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Description / Details</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                rows="4"
+                placeholder="Write full event details..."
+              />
             </div>
 
             {/* Price */}

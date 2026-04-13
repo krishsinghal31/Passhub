@@ -269,12 +269,14 @@ import {
 import api from '../../utils/api';
 import BackButton from '../../components/common/BackButton';
 import PageWrapper from '../../components/common/PageWrapper';
+import toast from 'react-hot-toast';
 
 const BookingDetails = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPasses, setSelectedPasses] = useState([]);
 
   const fetchDetails = useCallback(async () => {
     if (!bookingId) return;
@@ -287,7 +289,7 @@ const BookingDetails = () => {
         throw new Error("No booking data found");
       }
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to load booking details");
+      toast.error(error.response?.data?.message || "Failed to load booking details");
       navigate('/dashboard');
     } finally {
       setLoading(false);
@@ -299,7 +301,7 @@ const BookingDetails = () => {
   }, [fetchDetails]);
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-slate-50">
+    <div className="h-screen flex items-center justify-center bg-[#020617]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
   );
@@ -310,19 +312,44 @@ const BookingDetails = () => {
   const isPast = visitDate < new Date().setHours(0,0,0,0);
   const status = isPast && booking.status === 'CONFIRMED' ? 'EXPIRED' : booking.status;
 
+  const togglePassSelection = (passId) => {
+    setSelectedPasses((prev) => (
+      prev.includes(passId) ? prev.filter((id) => id !== passId) : [...prev, passId]
+    ));
+  };
+
+  const handleCancelSelected = async () => {
+    if (selectedPasses.length === 0) return;
+    if (!window.confirm(`Cancel ${selectedPasses.length} selected pass(es)?`)) return;
+
+    try {
+      const res = await api.patch('/passes/cancel-bulk', {
+        passIds: selectedPasses,
+        reason: 'Cancelled by visitor from booking details'
+      });
+      if (res.data.success) {
+        toast.success('Selected passes cancelled successfully');
+        setSelectedPasses([]);
+        fetchDetails();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to cancel selected passes');
+    }
+  };
+
   return (
-    <PageWrapper className="min-h-screen bg-slate-50 py-12 px-6">
+    <PageWrapper className="min-h-screen bg-[#020617] text-slate-100 py-12 px-6">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <BackButton to="/dashboard" />
-          <div className="flex items-center gap-2 text-slate-400 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 text-slate-400 bg-slate-900 px-4 py-2 rounded-2xl shadow-sm border border-slate-800">
             <Info size={16} />
             <span className="text-xs font-bold uppercase tracking-widest">ID: {booking._id.slice(-12)}</span>
           </div>
         </div>
 
         {/* MAIN TICKET CONTAINER */}
-        <div className="bg-white rounded-[3rem] shadow-2xl shadow-indigo-100 overflow-hidden border border-slate-100">
+        <div className="bg-slate-900/70 rounded-[3rem] shadow-2xl overflow-hidden border border-slate-800">
           
           {/* HEADER SECTION */}
           <div className="relative bg-indigo-600 p-8 md:p-12 text-white overflow-hidden">
@@ -357,34 +384,34 @@ const BookingDetails = () => {
           </div>
 
           {/* PERFORATION DIVIDER */}
-          <div className="relative h-2 bg-white flex items-center justify-between px-4">
-            <div className="absolute left-0 -ml-4 w-8 h-8 bg-slate-50 rounded-full border border-slate-100 shadow-inner"></div>
-            <div className="w-full border-t-2 border-dashed border-slate-200 mx-4"></div>
-            <div className="absolute right-0 -mr-4 w-8 h-8 bg-slate-50 rounded-full border border-slate-100 shadow-inner"></div>
+          <div className="relative h-2 bg-slate-900 flex items-center justify-between px-4">
+            <div className="absolute left-0 -ml-4 w-8 h-8 bg-[#020617] rounded-full border border-slate-800 shadow-inner"></div>
+            <div className="w-full border-t-2 border-dashed border-slate-700 mx-4"></div>
+            <div className="absolute right-0 -mr-4 w-8 h-8 bg-[#020617] rounded-full border border-slate-800 shadow-inner"></div>
           </div>
 
-          <div className="p-8 md:p-12 bg-white">
+          <div className="p-8 md:p-12 bg-slate-900">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
               
               {/* LEFT: BOOKING INFO */}
               <div className="lg:col-span-1 space-y-8">
                 <div>
                   <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Payment Summary</h3>
-                  <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
-                    <div className="flex justify-between mb-4 pb-4 border-b border-slate-200">
-                      <span className="text-slate-500 font-medium">Guest Count</span>
-                      <span className="font-black text-slate-800">{booking.guestCount}</span>
+                  <div className="bg-slate-950 rounded-3xl p-6 border border-slate-800">
+                    <div className="flex justify-between mb-4 pb-4 border-b border-slate-800">
+                      <span className="text-slate-400 font-medium">Guest Count</span>
+                      <span className="font-black text-slate-100">{booking.guestCount}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-500 font-medium">Total Paid</span>
+                      <span className="text-slate-400 font-medium">Total Paid</span>
                       <span className="text-2xl font-black text-indigo-600">₹{booking.totalAmount}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 flex gap-4">
+                <div className="p-6 bg-indigo-500/10 rounded-3xl border border-indigo-500/20 flex gap-4">
                   <ShieldCheck className="text-indigo-600 shrink-0" size={24} />
-                  <p className="text-xs text-indigo-700 font-medium leading-relaxed">
+                  <p className="text-xs text-indigo-200 font-medium leading-relaxed">
                     This booking is secured by PassHub. Show the QR codes on the right to the security personnel at the entry gate.
                   </p>
                 </div>
@@ -392,16 +419,34 @@ const BookingDetails = () => {
 
               {/* RIGHT: PASS CARDS */}
               <div className="lg:col-span-2">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Entry Passes</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Entry Passes</h3>
+                  {selectedPasses.length > 0 && (
+                    <button
+                      onClick={handleCancelSelected}
+                      className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-black uppercase tracking-widest"
+                    >
+                      Cancel Selected ({selectedPasses.length})
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {booking.passes?.map((pass, i) => (
-                    <div key={i} className={`group relative bg-white border-2 rounded-[2.5rem] p-6 transition-all 
-                      ${pass.status === 'CANCELLED' ? 'opacity-60 border-slate-100 bg-slate-50' : 'border-slate-100 hover:border-indigo-500 hover:shadow-xl'}`}>
+                    <div key={i} className={`group relative bg-slate-950 border-2 rounded-[2.5rem] p-6 transition-all 
+                      ${pass.status === 'CANCELLED' ? 'opacity-60 border-slate-800 bg-slate-900' : 'border-slate-800 hover:border-indigo-500 hover:shadow-xl'}`}>
                       
                       <div className="flex justify-between items-start mb-6">
                         <div>
+                          {pass.status !== 'CANCELLED' && !isPast && (
+                            <input
+                              type="checkbox"
+                              checked={selectedPasses.includes(pass._id)}
+                              onChange={() => togglePassSelection(pass._id)}
+                              className="mb-2 w-4 h-4"
+                            />
+                          )}
                           <p className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter mb-1">Pass #{i+1}</p>
-                          <h4 className="font-black text-slate-800 text-lg">{pass.guest?.name}</h4>
+                          <h4 className="font-black text-slate-100 text-lg">{pass.guest?.name}</h4>
                           <span className={`inline-block mt-2 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase
                             ${pass.checkInTime ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
                             {pass.checkInTime ? '✓ Checked In' : '• Ready'}
@@ -412,7 +457,7 @@ const BookingDetails = () => {
                         </div>
                       </div>
 
-                      <div className="relative aspect-square bg-slate-50 rounded-[2rem] flex flex-col items-center justify-center border-2 border-slate-100 shadow-inner group-hover:bg-white transition-colors overflow-hidden">
+                      <div className="relative aspect-square bg-slate-900 rounded-[2rem] flex flex-col items-center justify-center border-2 border-slate-800 shadow-inner group-hover:bg-slate-900 transition-colors overflow-hidden">
                         {pass.qrImage && pass.status !== 'CANCELLED' ? (
                           <>
                             <img src={pass.qrImage} alt="QR" className="w-40 h-40 object-contain relative z-10" />

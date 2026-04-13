@@ -1,6 +1,7 @@
 // src/components/common/InviteSecurityModal.jsx
 import React, { useState } from 'react';
 import { X, Mail, ShieldCheck, Info, User, Calendar } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const InviteSecurityModal = ({ isOpen, onClose, onInvite }) => {
   const [formData, setFormData] = useState({
@@ -16,7 +17,7 @@ const InviteSecurityModal = ({ isOpen, onClose, onInvite }) => {
     
     // Validation: Check dates
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
-      alert("End date cannot be before start date");
+      toast.error("End date cannot be before start date");
       return;
     }
 

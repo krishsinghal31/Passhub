@@ -1,12 +1,12 @@
 // backend/src/services/email.js
 
 const nodemailer = require("nodemailer");
-const { user, password } = require("../config/mail");
+const { user, password, host, port } = require("../config/mail");
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: host || "smtp.gmail.com",
+  port: Number(port || 587),
+  secure: Number(port) === 465,
   auth: {
     user: user,
     pass: password
@@ -23,9 +23,10 @@ const transporter = nodemailer.createTransport({
 
 transporter.verify((error, success) => {
   if (error) {
-    console.error('❌SMTP Connection Error:', error);
+    console.error('❌ SMTP Connection Error:', error.message);
+    console.error('⚠️ Check MAIL_USER, MAIL_PASS, MAIL_HOST, MAIL_PORT in backend .env');
   } else {
-    console.log('✅SMTP Server is ready to send emails');
+    console.log('✅ SMTP Server is ready to send emails');
   }
 });
 

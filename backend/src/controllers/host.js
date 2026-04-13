@@ -19,6 +19,7 @@ exports.createPlace = async (req, res) => {
       name,
       location,
       image,
+      description,
       eventDates,
       ticketAccessMode,
       price,
@@ -57,6 +58,7 @@ exports.createPlace = async (req, res) => {
       name,
       location,
       image,
+      description: description || "",
       host: hostId,
       eventDates: {
         start: eventStart,
@@ -718,7 +720,7 @@ exports.getSecurityForPlace = async (req, res) => {
 exports.updateEventDetailsWithNotification = async (req, res) => {
   try {
     const { placeId } = req.params;
-    const { name, location, image, price, refundPolicy } = req.body;
+    const { name, location, image, description, price, refundPolicy } = req.body;
     const hostId = req.user.id;
 
     const Place = require("../models/place");
@@ -745,6 +747,7 @@ exports.updateEventDetailsWithNotification = async (req, res) => {
     if (name) place.name = name;
     if (location) place.location = location;
     if (image) place.image = image;
+    if (description !== undefined) place.description = description;
     if (price !== undefined) place.price = price;
     if (refundPolicy) {
       place.refundPolicy = {

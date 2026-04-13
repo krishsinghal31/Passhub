@@ -16,6 +16,7 @@ import InviteSecurityModal from '../../components/common/InviteSecurityModal';
 import CancelEventModal from '../../components/common/CancelEventModal';
 import AnalyticsCharts from '../../components/analytics/AnalyticsCharts';
 import SeatsStatusModal from '../../components/common/SeatsStatusModal';
+import toast from 'react-hot-toast';
 
 const ManageEvent = () => {
   const { eventId } = useParams();
@@ -43,7 +44,7 @@ const ManageEvent = () => {
       }
     } catch (error) {
       console.error('Error fetching event data:', error);
-      if(error.response?.status === 403) alert("Unauthorized access to this event.");
+      if(error.response?.status === 403) toast.error("Unauthorized access to this event.");
     } finally {
       setLoading(false);
     }
@@ -64,10 +65,10 @@ const ManageEvent = () => {
       const res = await api.post(`/host/places/${eventId}/toggle-booking`);
       if (res.data.success) {
         fetchEventData();
-        alert(`Booking ${!eventData.place.isBookingEnabled ? 'Enabled' : 'Disabled'}`);
+        toast.success(`Booking ${!eventData.place.isBookingEnabled ? 'Enabled' : 'Disabled'}`);
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
     setActiveModal(null);
   };
@@ -77,10 +78,10 @@ const ManageEvent = () => {
       const res = await api.patch(`/host/places/${eventId}/capacity`, { dailyCapacity: parseInt(newCapacity) });
       if (res.data.success) {
         fetchEventData();
-        alert('Capacity updated successfully');
+        toast.success('Capacity updated successfully');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -92,10 +93,10 @@ const ManageEvent = () => {
       });
       if (res.data.success) {
         fetchEventData();
-        alert('Event timeline updated. Attendees have been notified.');
+        toast.success('Event timeline updated. Attendees notified.');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -112,10 +113,10 @@ const ManageEvent = () => {
     });
     
     if (res.data.success) {
-      alert("Staff assigned successfully!");
+      toast.success(res.data?.message || "Staff assigned successfully!");
     }
   } catch (err) {
-    alert(err.response?.data?.message || "Failed to assign staff");
+    toast.error(err.response?.data?.message || "Failed to assign staff");
   }
 };
 
@@ -126,7 +127,7 @@ const ManageEvent = () => {
         fetchEventData();
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -134,11 +135,11 @@ const ManageEvent = () => {
     try {
       const res = await api.post(`/host/places/${eventId}/cancel`, { reason });
       if (res.data.success) {
-        alert('Event cancelled. Full refunds initiated for all visitors.');
+        toast.success('Event cancelled. Full refunds initiated.');
         navigate('/dashboard');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 

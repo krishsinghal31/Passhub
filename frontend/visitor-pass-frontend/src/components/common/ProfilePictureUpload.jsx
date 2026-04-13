@@ -1,6 +1,7 @@
  // src/components/common/ProfilePictureUpload.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Upload, X, User, Check } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) => {
   const [preview, setPreview] = useState(currentImage || null);
@@ -39,7 +40,7 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) 
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB');
+        toast.error('Image size should be less than 5MB');
         return;
       }
       
@@ -70,7 +71,7 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) 
         onClose();
       } catch (error) {
         console.error("Failed to save image:", error);
-        alert("Could not save image. Please try again.");
+        toast.error("Could not save image. Please try again.");
       } finally {
         setIsProcessing(false);
       }

@@ -5,8 +5,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
 import SubscriptionCard from '../../components/common/SubscriptionCard';
 import BackButton from '../../components/common/BackButton';
-import { Zap } from 'lucide-react';
+import { CreditCard, Landmark, ShieldCheck, Zap } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const Subscriptions = () => {
   const [plans, setPlans] = useState([]);
@@ -37,7 +38,7 @@ const Subscriptions = () => {
       }
     } catch (error) {
       console.error('Error fetching plans:', error);
-      alert('Failed to load subscription plans');
+      toast.error('Failed to load subscription plans');
     } finally {
       setLoading(false);
     }
@@ -53,31 +54,23 @@ const Subscriptions = () => {
       
       if (res.data.success) {
         if (res.data.subscription.paymentStatus === 'FREE') {
-          alert('Free subscription activated!');
+          toast.success('Free subscription activated');
           await refreshUser?.();
           navigate('/create-event');
         } else {
-          // Paid plan - simulate payment confirmation for demo
-          // In production, integrate with payment gateway
-          const confirmPayment = window.confirm(
-            `Amount to pay: ₹${res.data.amountToPay}\n\nSimulate payment success?`
-          );
-          
-          if (confirmPayment) {
-            const confirmRes = await api.post('/host-subscription/confirm-payment', {
-              transactionId: `TXN${Date.now()}`
-            });
-            
-            if (confirmRes.data.success) {
-              alert('Payment successful! Subscription activated.');
-              await refreshUser?.();
-              navigate('/create-event');
-            }
+          const confirmRes = await api.post('/host-subscription/confirm-payment', {
+            transactionId: `TXN${Date.now()}`
+          });
+
+          if (confirmRes.data.success) {
+            toast.success('Subscription payment confirmed');
+            await refreshUser?.();
+            navigate('/create-event');
           }
         }
       }
     } catch (err) {
-      alert('Error: ' + (err.response?.data?.message || err.message));
+      toast.error(err.response?.data?.message || err.message);
     } finally {
       setPurchasingPlanId(null);
     }
@@ -103,6 +96,12 @@ const Subscriptions = () => {
               ? `Based on your event duration (${eventDuration} days), here are the recommended plans:`
               : 'Select a plan that best fits your event hosting needs'}
           </p>
+          <div className="mt-6 bg-white border border-indigo-100 rounded-2xl p-4 max-w-2xl mx-auto flex flex-wrap items-center justify-center gap-5">
+            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Supported Gateways</span>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><CreditCard size={16} /> Razorpay</span>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><Landmark size={16} /> Stripe</span>
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700"><ShieldCheck size={16} /> Secure checkout ready</span>
+          </div>
         </div>
 
         {loading ? (

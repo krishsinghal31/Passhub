@@ -85,6 +85,8 @@ exports.createBooking = async (req, res) => {
     }
 
     if (place.price === 0) {
+      let emailFailures = 0;
+      let emailAttempts = 0;
       const approvedCountNow = await Pass.countDocuments({
         place: placeId,
         visitDate: passDate,
@@ -136,6 +138,7 @@ for (let i = 0; i < passes.length; i++) {
   const pass = passes[i];
 
   const qrToken = crypto.randomUUID();
+  pass.slotNumber = approvedCountNow + i + 1;
   const qrImageBase64 = await generateQR({ passId: pass._id, qrToken });
   pass.qrImage = qrImageBase64;
   pass.qrToken = qrToken;
@@ -143,6 +146,7 @@ for (let i = 0; i < passes.length; i++) {
   await pass.save();
 
   if (pass.guest.email) {
+    emailAttempts += 1;
     // Convert base64 QR image to attachment
     const attachments = [];
     if (pass.qrImage && pass.qrImage.startsWith('data:image')) {
@@ -169,6 +173,7 @@ for (let i = 0; i < passes.length; i++) {
         attachments: attachments
       });
     } catch (emailErr) {
+      emailFailures += 1;
       // Don't fail booking if a single email fails (e.g., SMTP auth issue).
       console.error(`❌ Guest email failed for ${pass.guest.email}:`, emailErr.message);
     }
@@ -180,6 +185,7 @@ for (let i = 0; i < passes.length; i++) {
       await booking.save();
 
       if (visitor && visitor.email) {
+        emailAttempts += 1;
         try {
           // Convert all QR images to attachments
           const attachments = passes
@@ -207,13 +213,20 @@ for (let i = 0; i < passes.length; i++) {
           });
           console.log(`✅ Summary Email sent to Visitor: ${visitor.email}`);
         } catch (emailError) {
+          emailFailures += 1;
           console.error(`❌ Summary Email failed for ${visitor.email}:`, emailError.message);
         }
       }
 
       return res.json({
         success: true,
-        message: "Booking confirmed! Individual and summary emails sent.",
+        message: emailFailures > 0
+          ? `Booking confirmed. Passes generated. ${emailFailures}/${emailAttempts} email(s) failed.`
+          : "Booking confirmed. Individual and summary emails sent.",
+        emailStatus: {
+          attempted: emailAttempts,
+          failed: emailFailures
+        },
         bookingId: booking._id,
         passes: passes.map(p => ({
           passId: p._id,

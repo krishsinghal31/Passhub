@@ -1,6 +1,7 @@
 // src/components/common/UpdateCapacityModal.jsx
 import React, { useState } from 'react';
 import { X, Users } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const UpdateCapacityModal = ({ isOpen, currentCapacity, onUpdate, onClose }) => {
   const [capacity, setCapacity] = useState(currentCapacity);
@@ -10,7 +11,7 @@ const UpdateCapacityModal = ({ isOpen, currentCapacity, onUpdate, onClose }) => 
 
   const handleSubmit = async () => {
     if (capacity < 1) {
-      alert('Capacity must be at least 1');
+      toast.error('Capacity must be at least 1');
       return;
     }
     

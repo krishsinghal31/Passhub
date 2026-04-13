@@ -8,6 +8,7 @@ import BackButton from '../../components/common/BackButton';
 import SecurityPersonnelCard from '../../components/visitor/SecurityPersonnelCard';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import SeatsStatusModal from '../../components/common/SeatsStatusModal'; 
+import toast from 'react-hot-toast';
 
 const AdminManageEvent = () => {
   const { eventId } = useParams();
@@ -31,7 +32,7 @@ const AdminManageEvent = () => {
       }
     } catch (error) {
       console.error('Error fetching event:', error);
-      alert('Failed to load event details');
+      toast.error('Failed to load event details');
     } finally {
       setLoading(false);
     }
@@ -42,28 +43,28 @@ const AdminManageEvent = () => {
       const res = await api.post(`/host/places/${eventId}/toggle-booking`);
       if (res.data.success) {
         fetchEventDetails();
-        alert('Booking status updated');
+        toast.success('Booking status updated');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
     setShowToggleConfirm(false);
   };
 
   const handleCancelEvent = async () => {
     if (!cancelReason.trim()) {
-      alert('Please provide a reason');
+      toast.error('Please provide a reason');
       return;
     }
 
     try {
       const res = await api.post(`/admin/events/${eventId}/cancel`, { reason: cancelReason });
       if (res.data.success) {
-        alert('Event cancelled. All attendees have been notified.');
+        toast.success('Event cancelled and attendees notified');
         navigate('/admin');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 
@@ -72,10 +73,10 @@ const AdminManageEvent = () => {
       const res = await api.delete(`/host/places/${eventId}/security/${securityId}`);
       if (res.data.success) {
         fetchEventDetails();
-        alert('Security removed');
+        toast.success('Security assignment removed');
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     }
   };
 

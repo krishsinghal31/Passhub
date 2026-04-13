@@ -1,27 +1,14 @@
 // backend/routes/authrouter.js 
 const express = require("express");
 const router = express.Router();
-const { registerUser, loginUser, updateProfile,updatePassword } = require("../controllers/auth");
+const { registerUser, loginUser, getMe, updateProfile, updatePassword } = require("../controllers/auth");
 const authMiddleware = require("../middlewares/auth");
 const User = require("../models/user");
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 
-router.get("/me", authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id)
-      .select("-password")
-      .populate("subscription.planId");
-    
-    res.json({ 
-      success: true,
-      user 
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+router.get("/me", authMiddleware, getMe);
 
 router.put("/update-profile", authMiddleware, async (req, res) => {
   try {
@@ -73,5 +60,6 @@ router.put("/update-profile", authMiddleware, async (req, res) => {
 });
 
 router.put("/update-password", authMiddleware, updatePassword);
+router.put("/change-password", authMiddleware, updatePassword);
 
 module.exports = router;

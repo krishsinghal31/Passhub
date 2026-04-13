@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Shield, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import api from '../../utils/api';
 import PageWrapper from '../../components/common/PageWrapper';
+import toast from 'react-hot-toast';
 
 const ChangePassword = () => {
   const navigate = useNavigate();
@@ -35,13 +36,13 @@ const ChangePassword = () => {
     setError('');
 
     try {
-      const res = await api.put('/auth/update-password', {
+      const res = await api.put('/auth/change-password', {
         currentPassword: form.currentPassword,
         newPassword: form.newPassword
       });
 
       if (res.data.success) {
-        alert('Password updated successfully! Please login again with your new credentials.');
+        toast.success('Password updated. Please login again.');
         localStorage.removeItem('token');
         localStorage.removeItem('securityToken');
         //navigate('/');

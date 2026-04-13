@@ -1,16 +1,22 @@
+// src/components/host/EventForm.jsx
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import { Calendar, MapPin, Image, IndianRupee, Users, Shield, Percent, FileText, Save, X } from 'lucide-react';
+import { 
+  Calendar, MapPin, Image, IndianRupee, Users, 
+  Shield, Percent, FileText, Save, X, Zap 
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
-const EventForm = () => {
+const EventForm = ({ onBeforeSubmit, onSuccess }) => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ 
     name: '', 
     location: '', 
     image: '',
+    description: '',
     eventDates: { start: '', end: '' }, 
-    ticketAccessMode: 'SELECT_DATE', // for multi-day events
+    ticketAccessMode: 'SELECT_DATE',
     price: 0,
     dailyCapacity: 100,
     refundPolicy: {
@@ -26,7 +32,6 @@ const EventForm = () => {
     if (!form.eventDates?.start || !form.eventDates?.end) return false;
     const start = new Date(form.eventDates.start);
     const end = new Date(form.eventDates.end);
-    // if end is after start => more than 1 day
     return end > start;
   }, [form.eventDates?.start, form.eventDates?.end]);
 
@@ -39,292 +44,264 @@ const EventForm = () => {
         ticketAccessMode: isMultiDayEvent ? form.ticketAccessMode : 'SELECT_DATE'
       };
 
+      if (typeof onBeforeSubmit === 'function') {
+        const canProceed = onBeforeSubmit(payload);
+        if (!canProceed) {
+          setLoading(false);
+          return;
+        }
+      }
+
       const res = await api.post('/host/place', payload);
       if (res.data.success) {
-        alert('Event created successfully!');
-        navigate('/dashboard');
+        toast.success('Event created successfully');
+        if (typeof onSuccess === 'function') {
+          onSuccess(res.data.place || payload);
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
-      alert('Error: ' + (err.response?.data?.message || err.message));
+      const backendMessage = err.response?.data?.message || err.message;
+      const looksLikeSubscriptionError =
+        err.response?.status === 403 && /subscription|plan|active/i.test(backendMessage || '');
+
+      if (looksLikeSubscriptionError) {
+        const start = form.eventDates?.start ? new Date(form.eventDates.start) : null;
+        const end = form.eventDates?.end ? new Date(form.eventDates.end) : null;
+        const eventDuration =
+          start && end ? Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1) : undefined;
+
+        toast.error('Active subscription required. Redirecting to plans.');
+        navigate('/subscriptions', {
+          state: {
+            from: '/create-event',
+            eventDuration
+          }
+        });
+      } else {
+        toast.error(backendMessage);
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClasses = "w-full bg-slate-900/60 border-2 border-slate-800 rounded-2xl p-4 text-white placeholder:text-slate-500 focus:border-cyan-500/50 focus:ring-4 focus:ring-cyan-500/10 transition-all outline-none font-medium";
+  const labelClasses = "block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30 py-12 px-6">
+    <div className="min-h-screen bg-slate-950 py-12 px-6">
       <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100">
-          <h2 className="text-3xl font-black text-gray-900 mb-8 flex items-center gap-3">
-            <Calendar className="text-indigo-600" size={32} />
-            Create New Event
-          </h2>
+        <div className="bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-12 border border-slate-800 shadow-2xl relative">
           
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Event Name */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <FileText className="text-indigo-600" size={18} />
-                Event Name *
-              </label>
-              <input 
-                placeholder="Enter event name" 
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} 
-                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
-                required 
-              />
-            </div>
+          <div className="relative mb-10">
+            <h2 className="text-3xl font-black text-white flex items-center gap-3">
+              <Zap className="text-cyan-400" fill="currentColor" size={28} />
+              Create New Event
+            </h2>
+            <p className="text-slate-500 text-sm mt-2">Fill in the details below to list your event.</p>
+          </div>
 
-            {/* Location */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <MapPin className="text-indigo-600" size={18} />
-                Location *
-              </label>
-              <input 
-                placeholder="Enter event location" 
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })} 
-                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
-                required 
-              />
-            </div>
-
-            {/* Image URL */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <Image className="text-indigo-600" size={18} />
-                Image URL
-              </label>
-              <input 
-                type="url"
-                placeholder="https://example.com/image.jpg" 
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })} 
-                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
-              />
-              {form.image && (
-                <img src={form.image} alt="Preview" className="mt-3 w-full h-48 object-cover rounded-xl border-2 border-gray-200" />
-              )}
-            </div>
-
-            {/* Event Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Basic Info */}
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <Calendar className="text-indigo-600" size={18} />
-                  Start Date *
+                <label className={labelClasses}>
+                  <FileText className="text-cyan-500" size={16} /> Event Name *
                 </label>
+                <input 
+                  placeholder="e.g. Midnight Tech Summit" 
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                  className={inputClasses}
+                  required 
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className={labelClasses}>
+                    <MapPin className="text-cyan-500" size={16} /> Event Location *
+                  </label>
+                  <input 
+                    placeholder="Venue name or address" 
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })} 
+                    className={inputClasses}
+                    required 
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClasses}>
+                    <Image className="text-cyan-500" size={16} /> Image URL
+                  </label>
+                  <input 
+                    type="url"
+                    placeholder="https://image-link.com" 
+                    value={form.image}
+                    onChange={(e) => setForm({ ...form, image: e.target.value })} 
+                    className={inputClasses}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClasses}>
+                  <FileText className="text-cyan-500" size={16} /> Description / Details
+                </label>
+                <textarea
+                  placeholder="Add event details, schedule highlights, instructions..."
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className={`${inputClasses} min-h-[110px]`}
+                />
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800/50 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2 flex items-center gap-2 mb-2">
+                <Calendar className="text-blue-500" size={16} />
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Event Duration</span>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Start Date</label>
                 <input 
                   type="date" 
                   value={form.eventDates.start}
                   onChange={(e) => setForm({ ...form, eventDates: { ...form.eventDates, start: e.target.value } })} 
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
+                  className={`${inputClasses} bg-slate-950`}
                   required 
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <Calendar className="text-indigo-600" size={18} />
-                  End Date *
-                </label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">End Date</label>
                 <input 
                   type="date" 
                   value={form.eventDates.end}
                   onChange={(e) => setForm({ ...form, eventDates: { ...form.eventDates, end: e.target.value } })} 
                   min={form.eventDates.start}
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
+                  className={`${inputClasses} bg-slate-950`}
                   required 
                 />
               </div>
             </div>
 
-            {/* Ticket Access Mode (only for multi-day events) */}
+            {/* Multi-day Entry Logic */}
             {isMultiDayEvent && (
-              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <Shield className="text-indigo-600" size={20} />
-                  <h3 className="text-sm font-black text-gray-700">Ticket Access Mode</h3>
-                </div>
-                <p className="text-sm text-gray-600 mb-5">
-                  Choose whether visitors get entry for <strong>all days</strong> or only the <strong>selected date</strong>.
-                </p>
-
+              <div className="bg-cyan-500/5 p-6 rounded-3xl border border-cyan-500/20">
+                <h3 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-4">Entry Settings</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, ticketAccessMode: 'ALL_DAYS' })}
-                    className={`text-left p-4 rounded-xl border transition-all ${
+                    className={`p-4 rounded-2xl border text-left transition-all ${
                       form.ticketAccessMode === 'ALL_DAYS'
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg'
-                        : 'bg-white border-gray-200 text-gray-800 hover:bg-indigo-50'
+                        ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-bold'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="text-[10px] font-black uppercase tracking-widest">
-                      All Days Access
-                    </div>
-                    <div className="font-black mt-2">QR for every date</div>
-                    <div className="text-sm opacity-90 mt-1">
-                      Visitor can enter on each day of the event.
-                    </div>
+                    <div className="text-sm">Allow All Days</div>
+                    <div className="text-[10px] opacity-80 font-medium">One ticket works for the whole event</div>
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, ticketAccessMode: 'SELECT_DATE' })}
-                    className={`text-left p-4 rounded-xl border transition-all ${
+                    className={`p-4 rounded-2xl border text-left transition-all ${
                       form.ticketAccessMode === 'SELECT_DATE'
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg'
-                        : 'bg-white border-gray-200 text-gray-800 hover:bg-indigo-50'
+                        ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-bold'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="text-[10px] font-black uppercase tracking-widest">
-                      Selected Date Only
-                    </div>
-                    <div className="font-black mt-2">QR for one day</div>
-                    <div className="text-sm opacity-90 mt-1">
-                      Visitor selects a date during booking.
-                    </div>
+                    <div className="text-sm">Single Date Only</div>
+                    <div className="text-[10px] opacity-80 font-medium">User picks 1 specific date</div>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Price and Capacity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Pricing and Capacity */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <IndianRupee className="text-indigo-600" size={18} />
-                  Price (₹) *
+                <label className={labelClasses}>
+                  <IndianRupee className="text-cyan-500" size={16} /> Ticket Price (₹)
                 </label>
                 <input 
                   type="number" 
-                  placeholder="0" 
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: parseInt(e.target.value) || 0 })} 
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
-                  min="0"
+                  className={inputClasses}
                   required 
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <Users className="text-indigo-600" size={18} />
-                  Daily Capacity *
+                <label className={labelClasses}>
+                  <Users className="text-cyan-500" size={16} /> Max Guests Per Day
                 </label>
                 <input 
                   type="number" 
-                  placeholder="100" 
                   value={form.dailyCapacity}
                   onChange={(e) => setForm({ ...form, dailyCapacity: parseInt(e.target.value) || 100 })} 
-                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
-                  min="1"
+                  className={inputClasses}
                   required 
                 />
               </div>
             </div>
 
             {/* Refund Policy */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100">
-              <div className="flex items-center gap-2 mb-4">
-                <Shield className="text-indigo-600" size={20} />
-                <label className="text-sm font-bold text-gray-700">Refund Policy</label>
-              </div>
-              
-              <div className="flex items-center mb-4">
+            <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-slate-800">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Shield className="text-rose-500" size={18} />
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-widest">Refund Policy</label>
+                </div>
                 <input 
                   type="checkbox" 
                   checked={form.refundPolicy.isRefundable}
-                  onChange={(e) => setForm({ 
-                    ...form, 
-                    refundPolicy: { ...form.refundPolicy, isRefundable: e.target.checked }
-                  })} 
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                  onChange={(e) => setForm({ ...form, refundPolicy: { ...form.refundPolicy, isRefundable: e.target.checked } })} 
+                  className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-500/20"
                 />
-                <span className="ml-3 font-semibold text-gray-700">Enable refunds</span>
               </div>
               
               {form.refundPolicy.isRefundable && (
-                <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300">
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-2 flex items-center gap-2">
-                      <Percent className="text-indigo-500" size={14} />
-                      Refund % Before Visit
-                    </label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Refund % (Before Visit)</label>
                     <input 
                       type="number" 
-                      placeholder="80" 
                       value={form.refundPolicy.beforeVisitPercent}
-                      onChange={(e) => setForm({ 
-                        ...form, 
-                        refundPolicy: { ...form.refundPolicy, beforeVisitPercent: parseInt(e.target.value) || 80 }
-                      })} 
-                      className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                      min="0"
-                      max="100"
+                      onChange={(e) => setForm({ ...form, refundPolicy: { ...form.refundPolicy, beforeVisitPercent: parseInt(e.target.value) } })} 
+                      className={`${inputClasses} py-3 bg-slate-950`}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-2 flex items-center gap-2">
-                      <Percent className="text-indigo-500" size={14} />
-                      Refund % Same Day
-                    </label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Refund % (Same Day)</label>
                     <input 
                       type="number" 
-                      placeholder="50" 
                       value={form.refundPolicy.sameDayPercent}
-                      onChange={(e) => setForm({ 
-                        ...form, 
-                        refundPolicy: { ...form.refundPolicy, sameDayPercent: parseInt(e.target.value) || 50 }
-                      })} 
-                      className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                      min="0"
-                      max="100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-2">
-                      Policy Description
-                    </label>
-                    <textarea
-                      placeholder="Describe your refund policy..."
-                      value={form.refundPolicy.description}
-                      onChange={(e) => setForm({ 
-                        ...form, 
-                        refundPolicy: { ...form.refundPolicy, description: e.target.value }
-                      })} 
-                      className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                      rows="3"
+                      onChange={(e) => setForm({ ...form, refundPolicy: { ...form.refundPolicy, sameDayPercent: parseInt(e.target.value) } })} 
+                      className={`${inputClasses} py-3 bg-slate-950`}
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Submit Button */}
-            <div className="flex gap-4 pt-4">
+            {/* Buttons */}
+            <div className="flex flex-col md:flex-row gap-4 pt-4">
               <button 
                 type="submit" 
-                className="flex-1 bg-indigo-600 text-white px-6 py-4 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all font-black text-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                 disabled={loading}
+                className="flex-1 bg-cyan-500 text-slate-950 px-8 py-4 rounded-2xl hover:bg-cyan-400 disabled:opacity-50 transition-all font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 active:scale-95"
               >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Creating Event...
-                  </>
-                ) : (
-                  <>
-                    <Save size={20} />
-                    Create Event
-                  </>
-                )}
+                {loading ? "Creating..." : <><Save size={20} /> Create Event</>}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/dashboard')}
-                className="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-bold flex items-center gap-2"
+                className="px-8 py-4 bg-slate-800 text-slate-400 rounded-2xl hover:bg-slate-700 transition-all font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2"
               >
                 <X size={20} /> Cancel
               </button>

@@ -1,6 +1,7 @@
 // src/components/common/CancelEventModal.jsx
 import React, { useState } from 'react';
 import { X, XCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const CancelEventModal = ({ isOpen, eventName, onCancel, onClose }) => {
   const [reason, setReason] = useState('');
@@ -10,7 +11,7 @@ const CancelEventModal = ({ isOpen, eventName, onCancel, onClose }) => {
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
-      alert('Reason required');
+      toast.error('Reason required');
       return;
     }
     

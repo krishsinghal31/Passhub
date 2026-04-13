@@ -1,6 +1,7 @@
 // src/components/common/UpdateDatesModal.jsx
 import React, { useState } from 'react';
 import { X, Calendar } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const UpdateDatesModal = ({ isOpen, currentDates, onUpdate, onClose }) => {
   const [dates, setDates] = useState({
@@ -13,12 +14,12 @@ const UpdateDatesModal = ({ isOpen, currentDates, onUpdate, onClose }) => {
 
   const handleSubmit = async () => {
     if (!dates.startDate || !dates.endDate) {
-      alert('Please select both dates');
+      toast.error('Please select both dates');
       return;
     }
 
     if (new Date(dates.endDate) < new Date(dates.startDate)) {
-      alert('End date cannot be before start date');
+      toast.error('End date cannot be before start date');
       return;
     }
     

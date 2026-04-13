@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import api from '../../utils/api';
+import toast from 'react-hot-toast';
 
 const CreateSubscriptionPlanModal = ({ isOpen, onClose, onSuccess }) => {
   const [form, setForm] = useState({
@@ -26,7 +27,7 @@ const CreateSubscriptionPlanModal = ({ isOpen, onClose, onSuccess }) => {
       });
 
       if (res.data.success) {
-        alert('Subscription plan created successfully!');
+        toast.success('Subscription plan created successfully');
         setForm({
           name: '',
           price: 0,
@@ -38,7 +39,7 @@ const CreateSubscriptionPlanModal = ({ isOpen, onClose, onSuccess }) => {
         onClose();
       }
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
+      toast.error(error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
     }

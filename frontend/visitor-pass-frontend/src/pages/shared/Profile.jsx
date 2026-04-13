@@ -1,166 +1,166 @@
-// src/pages/shared/Profile.jsx 
-import React, { useContext, useState, useEffect } from 'react';
-import { AuthContext } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { 
-  User, Mail, Shield, Calendar, Camera, Edit2, Save, X,
-  CreditCard, Clock, CheckCircle, XCircle, Lock, ShieldAlert
-} from 'lucide-react';
-import PageWrapper from '../../components/common/PageWrapper';
-import BackButton from '../../components/common/BackButton';
-import ProfilePictureUpload from '../../components/common/ProfilePictureUpload';
-import api from '../../utils/api';
+// // src/pages/shared/Profile.jsx 
+// import React, { useContext, useState, useEffect } from 'react';
+// import { AuthContext } from '../../context/AuthContext';
+// import { useNavigate } from 'react-router-dom';
+// import { 
+//   User, Mail, Shield, Calendar, Camera, Edit2, Save, X,
+//   CreditCard, Clock, CheckCircle, XCircle, Lock, ShieldAlert
+// } from 'lucide-react';
+// import PageWrapper from '../../components/common/PageWrapper';
+// import BackButton from '../../components/common/BackButton';
+// import ProfilePictureUpload from '../../components/common/ProfilePictureUpload';
+// import api from '../../utils/api';
 
-const Profile = () => {
-  const { user, logout } = useContext(AuthContext);
-  const navigate = useNavigate();
-  const [profilePicture, setProfilePicture] = useState(null);
-  const [showUpload, setShowUpload] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: ''
-  });
-  const [loading, setLoading] = useState(false);
+// const Profile = () => {
+//   const { user, logout } = useContext(AuthContext);
+//   const navigate = useNavigate();
+//   const [profilePicture, setProfilePicture] = useState(null);
+//   const [showUpload, setShowUpload] = useState(false);
+//   const [isEditing, setIsEditing] = useState(false);
+//   const [form, setForm] = useState({
+//     name: '',
+//     email: '',
+//     phone: ''
+//   });
+//   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadProfileData();
-    }
-  }, [user]);
+//   useEffect(() => {
+//     if (user) {
+//       loadProfileData();
+//     }
+//   }, [user]);
 
-  const loadProfileData = () => {
-    const userId = user._id || user.id;
-    const savedPicture = localStorage.getItem(`profile_picture_${userId}`);
-    if (savedPicture) {
-      setProfilePicture(savedPicture);
-    }
+//   const loadProfileData = () => {
+//     const userId = user._id || user.id;
+//     const savedPicture = localStorage.getItem(`profile_picture_${userId}`);
+//     if (savedPicture) {
+//       setProfilePicture(savedPicture);
+//     }
     
-    setForm({
-      name: user.name || '',
-      email: user.email || '',
-      phone: user.phone || ''
-    });
-  };
+//     setForm({
+//       name: user.name || '',
+//       email: user.email || '',
+//       phone: user.phone || ''
+//     });
+//   };
 
-  const handleProfilePictureUpdate = (imageData) => {
-    setProfilePicture(imageData);
-    setShowUpload(false);
-  };
+//   const handleProfilePictureUpdate = (imageData) => {
+//     setProfilePicture(imageData);
+//     setShowUpload(false);
+//   };
 
-  const handleUpdateProfile = async () => {
-    setLoading(true);
-    try {
-      const res = await api.put('/auth/update-profile', form);
-      if (res.data.success) {
-        alert('Profile updated successfully!');
-        setIsEditing(false);
-      }
-    } catch (error) {
-      alert('Error: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setLoading(false);
-    }
-  };
+//   const handleUpdateProfile = async () => {
+//     setLoading(true);
+//     try {
+//       const res = await api.put('/auth/update-profile', form);
+//       if (res.data.success) {
+//         alert('Profile updated successfully!');
+//         setIsEditing(false);
+//       }
+//     } catch (error) {
+//       alert('Error: ' + (error.response?.data?.message || error.message));
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
 
-  if (!user) {
-    return (
-      <PageWrapper>
-        <div className="min-h-screen flex items-center justify-center">
-          <p className="text-gray-500 text-lg">Please log in to view your profile</p>
-        </div>
-      </PageWrapper>
-    );
-  }
+//   if (!user) {
+//     return (
+//       <PageWrapper>
+//         <div className="min-h-screen flex items-center justify-center">
+//           <p className="text-gray-500 text-lg">Please log in to view your profile</p>
+//         </div>
+//       </PageWrapper>
+//     );
+//   }
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
+//   const formatDate = (dateStr) => {
+//     if (!dateStr) return 'N/A';
+//     return new Date(dateStr).toLocaleDateString('en-US', { 
+//       month: 'long', 
+//       day: 'numeric', 
+//       year: 'numeric' 
+//     });
+//   };
 
-  return (
-    <PageWrapper className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-6 pb-20">
-      <div className="max-w-4xl mx-auto">
-        <BackButton to="/dashboard" />
+// //   return (
+// //     <PageWrapper className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-6 pb-20">
+// //       <div className="max-w-4xl mx-auto">
+// //         <BackButton to="/dashboard" />
 
-        {/* Profile Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2.5rem] shadow-2xl p-8 mb-8 text-white relative overflow-hidden">
-          <div className="relative flex flex-col md:flex-row items-center gap-8">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-white flex items-center justify-center">
-                {profilePicture ? <img src={profilePicture} className="w-full h-full object-cover" alt="" /> : <User size={64} className="text-indigo-200" />}
-              </div>
-              <button onClick={() => setShowUpload(true)} className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-indigo-600"><Camera size={18}/></button>
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-black mb-1">{user.name}</h1>
-              <p className="text-indigo-100 font-medium mb-4">{user.email}</p>
-              <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">{user.role}</span>
-                {user.subscription?.isActive && <span className="px-4 py-1.5 bg-emerald-500 rounded-full text-xs font-black uppercase tracking-widest">Active Plan</span>}
-              </div>
-            </div>
-            <button onClick={() => setIsEditing(!isEditing)} className="px-6 py-3 bg-white text-indigo-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2">
-              {isEditing ? <X size={16}/> : <Edit2 size={16}/>} {isEditing ? 'Cancel' : 'Edit'}
-            </button>
-          </div>
-        </div>
+// //         {/* Profile Header */}
+// //         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2.5rem] shadow-2xl p-8 mb-8 text-white relative overflow-hidden">
+// //           <div className="relative flex flex-col md:flex-row items-center gap-8">
+// //             <div className="relative">
+// //               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl bg-white flex items-center justify-center">
+// //                 {profilePicture ? <img src={profilePicture} className="w-full h-full object-cover" alt="" /> : <User size={64} className="text-indigo-200" />}
+// //               </div>
+// //               <button onClick={() => setShowUpload(true)} className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-indigo-600"><Camera size={18}/></button>
+// //             </div>
+// //             <div className="flex-1 text-center md:text-left">
+// //               <h1 className="text-4xl font-black mb-1">{user.name}</h1>
+// //               <p className="text-indigo-100 font-medium mb-4">{user.email}</p>
+// //               <div className="flex flex-wrap justify-center md:justify-start gap-3">
+// //                 <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-widest">{user.role}</span>
+// //                 {user.subscription?.isActive && <span className="px-4 py-1.5 bg-emerald-500 rounded-full text-xs font-black uppercase tracking-widest">Active Plan</span>}
+// //               </div>
+// //             </div>
+// //             <button onClick={() => setIsEditing(!isEditing)} className="px-6 py-3 bg-white text-indigo-600 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2">
+// //               {isEditing ? <X size={16}/> : <Edit2 size={16}/>} {isEditing ? 'Cancel' : 'Edit'}
+// //             </button>
+// //           </div>
+// //         </div>
 
-        {/* Basic Info */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl p-8 mb-8 border border-slate-100">
-           {isEditing ? (
-             <div className="space-y-4">
-                <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="Full Name" />
-                <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="Email" />
-                <button onClick={handleUpdateProfile} disabled={loading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2"><Save size={18}/> Save Changes</button>
-             </div>
-           ) : (
-             <div className="grid md:grid-cols-2 gap-6">
-                {[ { label: 'Full Name', val: user.name, icon: <User/> }, { label: 'Email', val: user.email, icon: <Mail/> }, { label: 'Role', val: user.role, icon: <Shield/> }, { label: 'Joined', val: formatDate(user.createdAt), icon: <Calendar/> } ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-4 p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
-                    <div className="text-indigo-500">{item.icon}</div>
-                    <div><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="font-bold text-slate-700">{item.val}</p></div>
-                  </div>
-                ))}
-             </div>
-           )}
-        </div>
+// //         {/* Basic Info */}
+// //         <div className="bg-white rounded-[2.5rem] shadow-xl p-8 mb-8 border border-slate-100">
+// //            {isEditing ? (
+// //              <div className="space-y-4">
+// //                 <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="Full Name" />
+// //                 <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="Email" />
+// //                 <button onClick={handleUpdateProfile} disabled={loading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2"><Save size={18}/> Save Changes</button>
+// //              </div>
+// //            ) : (
+// //              <div className="grid md:grid-cols-2 gap-6">
+// //                 {[ { label: 'Full Name', val: user.name, icon: <User/> }, { label: 'Email', val: user.email, icon: <Mail/> }, { label: 'Role', val: user.role, icon: <Shield/> }, { label: 'Joined', val: formatDate(user.createdAt), icon: <Calendar/> } ].map((item, i) => (
+// //                   <div key={i} className="flex items-center gap-4 p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+// //                     <div className="text-indigo-500">{item.icon}</div>
+// //                     <div><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="font-bold text-slate-700">{item.val}</p></div>
+// //                   </div>
+// //                 ))}
+// //              </div>
+// //            )}
+// //         </div>
 
-        {/* NEW: SECURITY & PASSWORD SECTION */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl p-8 mb-8 border border-slate-100 overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-8 opacity-10"><Lock size={80}/></div>
-          <h2 className="text-2xl font-black text-slate-800 mb-2 flex items-center gap-3"><ShieldAlert className="text-indigo-600"/> Security & Privacy</h2>
-          <p className="text-slate-500 text-sm mb-8">Manage your account security and password. If you are staff, updating your password here activates your full permissions.</p>
+// //         {/* NEW: SECURITY & PASSWORD SECTION */}
+// //         <div className="bg-white rounded-[2.5rem] shadow-xl p-8 mb-8 border border-slate-100 overflow-hidden relative">
+// //           <div className="absolute top-0 right-0 p-8 opacity-10"><Lock size={80}/></div>
+// //           <h2 className="text-2xl font-black text-slate-800 mb-2 flex items-center gap-3"><ShieldAlert className="text-indigo-600"/> Security & Privacy</h2>
+// //           <p className="text-slate-500 text-sm mb-8">Manage your account security and password. If you are staff, updating your password here activates your full permissions.</p>
           
-          <div className="flex flex-col md:flex-row gap-4">
-             <button 
-                onClick={() => navigate('/security/change-password')}
-                className="flex-1 py-4 px-6 bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
-             >
-                <Lock size={16} /> Change Password
-             </button>
-             <button className="flex-1 py-4 px-6 bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:border-red-500 hover:text-red-600 transition-all flex items-center justify-center gap-2">
-                Enable 2FA (Coming Soon)
-             </button>
-          </div>
-        </div>
+// //           <div className="flex flex-col md:flex-row gap-4">
+// //              <button 
+// //                 onClick={() => navigate('/security/change-password')}
+// //                 className="flex-1 py-4 px-6 bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+// //              >
+// //                 <Lock size={16} /> Change Password
+// //              </button>
+// //              <button className="flex-1 py-4 px-6 bg-slate-50 border-2 border-slate-100 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:border-red-500 hover:text-red-600 transition-all flex items-center justify-center gap-2">
+// //                 Enable 2FA (Coming Soon)
+// //              </button>
+// //           </div>
+// //         </div>
 
-        {/* Subscription Info ... same as your code ... */}
+// //         {/* Subscription Info ... same as your code ... */}
 
-        <button onClick={() => { logout(); navigate('/'); }} className="w-full py-4 bg-red-50 text-red-600 border-2 border-red-100 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg shadow-red-100">Logout Account</button>
-      </div>
+// //         <button onClick={() => { logout(); navigate('/'); }} className="w-full py-4 bg-red-50 text-red-600 border-2 border-red-100 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg shadow-red-100">Logout Account</button>
+// //       </div>
 
-      {showUpload && <ProfilePictureUpload onClose={() => setShowUpload(false)} onImageUpdate={setProfilePicture} userId={user._id || user.id} />}
-    </PageWrapper>
-  );
-};
+// //       {showUpload && <ProfilePictureUpload onClose={() => setShowUpload(false)} onImageUpdate={setProfilePicture} userId={user._id || user.id} />}
+// //     </PageWrapper>
+// //   );
+// // };
 
-export default Profile;
+// // export default Profile;
 
 //   return (
 //     <PageWrapper className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8 px-6">
@@ -414,3 +414,168 @@ export default Profile;
 // };
 
 // export default Profile;
+
+
+
+import React, { useContext, useState, useEffect } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { 
+  User, Mail, Shield, Calendar, Camera, Edit2, Save, X,
+  CreditCard, Clock, CheckCircle, XCircle, Lock, ShieldAlert, Phone
+} from 'lucide-react';
+import PageWrapper from '../../components/common/PageWrapper';
+import BackButton from '../../components/common/BackButton';
+import ProfilePictureUpload from '../../components/common/ProfilePictureUpload';
+import api from '../../utils/api';
+
+const Profile = () => {
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      const userId = user._id || user.id;
+      const savedPicture = localStorage.getItem(`profile_picture_${userId}`);
+      if (savedPicture) setProfilePicture(savedPicture);
+      setForm({ name: user.name || '', email: user.email || '', phone: user.phone || '' });
+    }
+  }, [user]);
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const res = await api.put('/auth/update-profile', form);
+      if (res.data.success) { setIsEditing(false); }
+    } catch (error) { console.error(error); } 
+    finally { setLoading(false); }
+  };
+
+  const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString() : 'N/A';
+
+  return (
+    <PageWrapper className="min-h-screen bg-[#0f172a] text-slate-100 py-12 px-6">
+      <div className="max-w-4xl mx-auto">
+        <BackButton to="/dashboard" className="mb-8" />
+
+        {/* Header Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 mb-8 relative overflow-hidden shadow-2xl">
+          <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-3xl overflow-hidden bg-slate-800 border-2 border-slate-700 flex items-center justify-center shadow-inner">
+                {profilePicture ? (
+                  <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-4xl font-black text-cyan-500">{user?.name?.charAt(0)}</span>
+                )}
+              </div>
+              <button onClick={() => setShowUpload(true)} className="absolute -bottom-2 -right-2 w-10 h-10 bg-cyan-600 rounded-xl flex items-center justify-center shadow-lg hover:bg-cyan-500 transition-all">
+                <Camera size={18} className="text-white" />
+              </button>
+            </div>
+
+            <div className="flex-1 text-center md:text-left">
+              <h1 className="text-3xl font-black text-white mb-2">{user?.name}</h1>
+              <p className="text-slate-400 font-medium mb-4">{user?.email}</p>
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                <span className="px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                  {user?.role}
+                </span>
+                {user?.subscription?.isActive && (
+                  <span className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                    <CheckCircle size={12}/> Active Plan
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button onClick={() => setIsEditing(!isEditing)} className="px-6 py-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2">
+              {isEditing ? <X size={16}/> : <Edit2 size={16}/>} {isEditing ? 'Cancel' : 'Edit Profile'}
+            </button>
+          </div>
+        </div>
+
+        {/* Form / Details Section */}
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 mb-8">
+          {isEditing ? (
+            <div className="space-y-5">
+              <InputGroup icon={<User/>} label="Full Name" value={form.name} onChange={v => setForm({...form, name: v})} />
+              <InputGroup icon={<Mail/>} label="Email" value={form.email} onChange={v => setForm({...form, email: v})} />
+              <InputGroup icon={<Phone/>} label="Phone" value={form.phone} onChange={v => setForm({...form, phone: v})} />
+              <button onClick={handleUpdateProfile} disabled={loading} className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                <Save size={18}/> {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              <InfoTile icon={<User/>} label="Name" val={user?.name} />
+              <InfoTile icon={<Mail/>} label="Email" val={user?.email} />
+              <InfoTile icon={<Shield/>} label="Account Role" val={user?.role} />
+              <InfoTile icon={<Calendar/>} label="Joined Date" val={formatDate(user?.createdAt)} />
+            </div>
+          )}
+        </div>
+
+        {/* Subscription Section */}
+        {user?.subscription && (
+           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 mb-8 overflow-hidden relative">
+             <div className="absolute top-0 right-0 p-8 opacity-5"><CreditCard size={100}/></div>
+             <h2 className="text-xl font-black mb-6 uppercase tracking-tighter">Plan Overview</h2>
+             <div className="grid md:grid-cols-3 gap-4">
+               <PlanStat label="Current Plan" val={user.subscription.planName || 'Standard'} color="text-cyan-400" />
+               <PlanStat label="Days Remaining" val={`${user.subscription.daysRemaining || 0} Days`} color="text-emerald-400" />
+               <PlanStat label="Status" val={user.subscription.isActive ? 'Active' : 'Expired'} color={user.subscription.isActive ? 'text-cyan-400' : 'text-red-400'} />
+             </div>
+           </div>
+        )}
+
+        <button
+          onClick={() => navigate('/change-password')}
+          className="w-full mb-4 py-4 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-2xl font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-slate-950 transition-all flex items-center justify-center gap-2"
+        >
+          <Lock size={16} /> Change Password
+        </button>
+
+        <button onClick={() => { logout(); navigate('/'); }} className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
+          Logout Securely
+        </button>
+      </div>
+
+      {showUpload && <ProfilePictureUpload onClose={() => setShowUpload(false)} onImageUpdate={setProfilePicture} userId={user._id || user.id} />}
+    </PageWrapper>
+  );
+};
+
+const InputGroup = ({ icon, label, value, onChange }) => (
+  <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl focus-within:border-cyan-500 transition-all">
+    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">{label}</p>
+    <div className="flex items-center gap-3">
+      <span className="text-slate-500">{icon}</span>
+      <input value={value} onChange={e => onChange(e.target.value)} className="bg-transparent border-none outline-none w-full font-bold text-white" />
+    </div>
+  </div>
+);
+
+const InfoTile = ({ icon, label, val }) => (
+  <div className="p-5 bg-[#0f172a] border border-slate-800 rounded-2xl flex items-center gap-4">
+    <div className="text-cyan-500">{icon}</div>
+    <div>
+      <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{label}</p>
+      <p className="font-bold text-slate-200">{val}</p>
+    </div>
+  </div>
+);
+
+const PlanStat = ({ label, val, color }) => (
+  <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl">
+    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">{label}</p>
+    <p className={`text-xl font-black ${color}`}>{val}</p>
+  </div>
+);
+
+export default Profile;

@@ -7,21 +7,23 @@ const InviteAdminModal = ({ isOpen, onClose, onSuccess }) => {
   const [form, setForm] = useState({ name: '', email: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
       const res = await api.post('/admin/invite-admin', form);
       if (res.data.success) {
-        alert('Admin invited successfully! They will receive credentials via email.');
+        setSuccess(res.data.message || 'Admin invited successfully.');
         setForm({ name: '', email: '' });
         onSuccess();
-        onClose();
+        setTimeout(() => onClose(), 1300);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to invite admin');
@@ -51,6 +53,11 @@ const InviteAdminModal = ({ isOpen, onClose, onSuccess }) => {
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-sm font-semibold">
+            {success}
           </div>
         )}
 

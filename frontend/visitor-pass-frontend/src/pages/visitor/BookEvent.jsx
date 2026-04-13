@@ -7,8 +7,8 @@ const BookEvent = () => {
   const { placeId } = useParams();
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Book Event</h1>
+    <div className="min-h-screen bg-[#020617] p-6">
+      <h1 className="text-2xl font-black text-slate-100 mb-4">Book Event</h1>
       <BookingForm placeId={placeId} />
     </div>
   );

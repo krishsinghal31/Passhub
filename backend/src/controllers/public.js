@@ -82,7 +82,10 @@ exports.getHomeEvents = async (req, res) => {
       return {
         _id: event._id,
         title: event.name,
+        name: event.name,
         description: event.description || `Event at ${event.name}`,
+        image: event.image || null,
+        location: event.location,
         place: {
           _id: event._id,
           name: event.name,

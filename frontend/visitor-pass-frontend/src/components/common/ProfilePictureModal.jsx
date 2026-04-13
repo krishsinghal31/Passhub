@@ -1,6 +1,7 @@
 // src/components/common/ProfilePictureUpload.jsx 
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, User } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) => {
   const [selectedImage, setSelectedImage] = useState(null);
@@ -12,7 +13,7 @@ const ProfilePictureUpload = ({ currentImage, onImageUpdate, onClose, userId }) 
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB');
+        toast.error('Image size should be less than 5MB');
         return;
       }
       

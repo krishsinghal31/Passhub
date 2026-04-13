@@ -83,15 +83,16 @@ const SeatsStatusModal = ({ isOpen, eventId, totalCapacity, onClose, apiPath }) 
                 </p>
               </div>
 
-              <div className="grid grid-cols-10 gap-2 max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-8 md:grid-cols-10 gap-3 max-h-96 overflow-y-auto">
                 {Array.from({ length: totalCapacity }, (_, i) => i + 1).map(seatNumber => (
                   <div
                     key={seatNumber}
-                    className={`aspect-square rounded-lg flex items-center justify-center text-sm font-semibold transition-all ${
+                    className={`aspect-square rounded-full flex items-center justify-center text-xs font-black transition-all ${
                       isSeatBooked(seatNumber)
-                        ? 'bg-green-500 text-white shadow-md'  // Green for booked
+                        ? 'bg-green-500 text-white shadow-lg ring-2 ring-green-300'  // Green for booked
                         : 'bg-yellow-200 text-yellow-800 border-2 border-yellow-300'  // Yellow for available
                     }`}
+                    title={isSeatBooked(seatNumber) ? `Seat ${seatNumber} - Booked` : `Seat ${seatNumber} - Available`}
                   >
                     {seatNumber}
                   </div>

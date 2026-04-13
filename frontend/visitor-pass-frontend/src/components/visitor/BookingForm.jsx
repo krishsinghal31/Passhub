@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { User, Mail, Phone, Calendar, Plus, X, IndianRupee, Users, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
   const { placeId: routePlaceId } = useParams();
@@ -31,7 +32,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
         }
       } catch (error) {
         console.error('Error fetching place:', error);
-        alert('Error loading event details');
+        toast.error('Error loading event details');
       } finally {
         setFetching(false);
       }
@@ -62,7 +63,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isAllDaysAccess && !visitDate) {
-      alert('Please select a visit date');
+      toast.error('Please select a visit date');
       return;
     }
     
@@ -76,17 +77,17 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
       
       if (res.data.success) {
         if (res.data.amountToPay > 0) {
-          alert(`Booking created! Amount to pay: ₹${res.data.amountToPay}. Please proceed to payment.`);
+          toast.success(`Booking created. Amount due: ₹${res.data.amountToPay}`);
           navigate(`/payment/${res.data.bookingId}`, {
             state: { amount: res.data.amountToPay, eventName: event?.name || 'Event' }
           });
         } else {
-          alert('Booking confirmed! Free passes have been generated and sent to your email.');
+          toast.success('Booking confirmed. Free passes were sent by email.');
           navigate('/dashboard');
         }
       }
     } catch (err) {
-      alert('Error: ' + (err.response?.data?.message || err.message));
+      toast.error(err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
@@ -117,10 +118,10 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
   const validGuests = guests.filter(g => g.name.trim());
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30 py-12 px-6">
+    <div className="min-h-screen bg-[#020617] py-12 px-6">
       <div className="max-w-3xl mx-auto">
         {/* Event Info Card */}
-        <div className="bg-white rounded-3xl shadow-xl p-8 mb-8 border border-gray-100">
+        <div className="bg-slate-900/70 border border-slate-800 rounded-3xl shadow-xl p-8 mb-8">
           <div className="flex items-start gap-6">
             {event.image && (
               <img 
@@ -130,15 +131,15 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
               />
             )}
             <div className="flex-1">
-              <h1 className="text-3xl font-black text-gray-900 mb-3">{event.name}</h1>
+              <h1 className="text-3xl font-black text-slate-100 mb-3">{event.name}</h1>
               <div className="space-y-2">
-                <div className="flex items-center text-gray-600">
+                <div className="flex items-center text-slate-300">
                   <Calendar className="w-5 h-5 mr-2 text-indigo-500" />
                   <span className="font-medium">
                     {new Date(event.eventDates?.start).toLocaleDateString()} - {new Date(event.eventDates?.end).toLocaleDateString()}
                   </span>
                 </div>
-                <div className="flex items-center text-gray-600">
+                <div className="flex items-center text-slate-300">
                   <Users className="w-5 h-5 mr-2 text-orange-500" />
                   <span className="font-medium">
                     {event.remainingCapacity || 0} seats available
@@ -149,8 +150,8 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100">
-          <h2 className="text-2xl font-black text-gray-900 mb-8 flex items-center gap-3">
+        <form onSubmit={handleSubmit} className="bg-slate-900/70 border border-slate-800 rounded-3xl shadow-xl p-8 md:p-10">
+          <h2 className="text-2xl font-black text-slate-100 mb-8 flex items-center gap-3">
             <Users className="text-indigo-600" size={28} />
             Guest Information
           </h2>
@@ -158,7 +159,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
           {/* Visit Date */}
           {!isAllDaysAccess ? (
             <div className="mb-8">
-              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <label className="block text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
                 <Calendar className="text-indigo-600" size={18} />
                 Visit Date *
               </label>
@@ -168,17 +169,17 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
                 onChange={(e) => setVisitDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
                 max={event.eventDates?.end ? new Date(event.eventDates.end).toISOString().split('T')[0] : ''}
-                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
+                className="w-full p-4 border-2 border-slate-700 bg-slate-950 text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none font-medium"
                 required 
               />
             </div>
           ) : (
-            <div className="mb-8 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border-2 border-indigo-100">
+            <div className="mb-8 bg-indigo-500/10 p-6 rounded-2xl border-2 border-indigo-500/20">
               <div className="flex items-center gap-3 mb-2">
                 <Calendar className="text-indigo-600" size={18} />
-                <h3 className="text-sm font-black text-gray-700">All Days Access</h3>
+                <h3 className="text-sm font-black text-slate-200">All Days Access</h3>
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-400">
                 Your booking will generate QR passes for every day of this event.
               </p>
             </div>
@@ -187,7 +188,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
           {/* Guests */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-bold text-gray-700 flex items-center gap-2">
+              <label className="block text-sm font-bold text-slate-300 flex items-center gap-2">
                 <Users className="text-indigo-600" size={18} />
                 Guests (Max 6) *
               </label>
@@ -204,9 +205,9 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
             
             <div className="space-y-4">
               {guests.map((guest, i) => (
-                <div key={i} className="p-6 border-2 border-gray-200 rounded-2xl hover:border-indigo-300 transition-all bg-slate-50/50">
+                <div key={i} className="p-6 border-2 border-slate-800 rounded-2xl hover:border-indigo-500/40 transition-all bg-slate-950/50">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="font-bold text-gray-700">Guest {i + 1}</span>
+                    <span className="font-bold text-slate-300">Guest {i + 1}</span>
                     {guests.length > 1 && (
                       <button 
                         type="button"
@@ -220,7 +221,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-2 flex items-center gap-2">
+                      <label className="block text-xs font-bold text-slate-400 mb-2 flex items-center gap-2">
                         <User className="text-indigo-500" size={14} />
                         Full Name *
                       </label>
@@ -228,13 +229,13 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
                         placeholder="Enter guest name" 
                         value={guest.name} 
                         onChange={(e) => updateGuest(i, 'name', e.target.value)} 
-                        className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                        className="w-full p-3 border-2 border-slate-700 bg-slate-900 text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
                         required 
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-2 flex items-center gap-2">
+                      <label className="block text-xs font-bold text-slate-400 mb-2 flex items-center gap-2">
                         <Mail className="text-indigo-500" size={14} />
                         Email
                       </label>
@@ -243,12 +244,12 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
                         placeholder="guest@example.com" 
                         value={guest.email} 
                         onChange={(e) => updateGuest(i, 'email', e.target.value)} 
-                        className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                        className="w-full p-3 border-2 border-slate-700 bg-slate-900 text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-2 flex items-center gap-2">
+                      <label className="block text-xs font-bold text-slate-400 mb-2 flex items-center gap-2">
                         <Phone className="text-indigo-500" size={14} />
                         Phone
                       </label>
@@ -257,7 +258,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
                         placeholder="+91 9876543210" 
                         value={guest.phone} 
                         onChange={(e) => updateGuest(i, 'phone', e.target.value)} 
-                        className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                        className="w-full p-3 border-2 border-slate-700 bg-slate-900 text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
                       />
                     </div>
                   </div>
@@ -267,9 +268,9 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
           </div>
 
           {/* Summary */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl mb-8 border-2 border-indigo-100">
+          <div className="bg-indigo-500/10 p-6 rounded-2xl mb-8 border-2 border-indigo-500/20">
             <div className="flex items-center justify-between mb-4">
-              <span className="font-bold text-gray-700 flex items-center gap-2">
+              <span className="font-bold text-slate-300 flex items-center gap-2">
                 <IndianRupee className="text-indigo-600" size={20} />
                 Total Amount
               </span>
@@ -283,7 +284,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
                 This is a free event!
               </div>
             )}
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-sm text-slate-400 mt-2">
               {validGuests.length} guest{validGuests.length !== 1 ? 's' : ''} × ₹{event.price} = ₹{totalAmount}
             </p>
           </div>

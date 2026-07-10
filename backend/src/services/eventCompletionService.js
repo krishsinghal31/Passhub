@@ -46,9 +46,9 @@ async function checkAndCompleteEvents() {
 
       const netProfit = Math.max(0, totalMoneyCollected - totalRefundMoney);
       
-      // Load rates from env (with defaults)
+      // Load platform fee from env
       const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT) || 5;
-      const gatewayFeePercent = parseFloat(process.env.PAYMENT_GATEWAY_FEE_PERCENT) || 2;
+      const gatewayFeePercent = 2; // Standard gateway charge (2%)
       
       const platformFee = Math.round(netProfit * platformFeePercent / 100);
       const gatewayFee = Math.round(totalMoneyCollected * gatewayFeePercent / 100);

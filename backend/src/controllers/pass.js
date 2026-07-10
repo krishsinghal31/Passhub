@@ -19,7 +19,7 @@ const cancelGuestPass = async (req, res) => {
       });
     }
 
-    if (pass.bookedBy._id.toString() !== visitorId) {
+    if (pass.bookedBy._id.toString() !== visitorId.toString()) {
       return res.status(403).json({ 
         success: false,
         message: "Not authorized" 
@@ -52,7 +52,7 @@ const cancelGuestPass = async (req, res) => {
 
     if (refundAmount > 0 && pass.paymentStatus === "PAID") {
       pass.refundAmount = refundAmount;
-      pass.refundStatus = "INITIATED";
+      pass.refundStatus = "COMPLETED";
       pass.paymentStatus = "REFUNDED";
       await pass.save();
     }
@@ -71,7 +71,7 @@ const cancelGuestPass = async (req, res) => {
             ${refundAmount > 0 ? `
               <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0;">
                 <p style="margin: 0;"><strong>Refund Amount:</strong> ₹${refundAmount}</p>
-                <p style="margin: 5px 0 0 0; font-size: 14px;">The refund will be processed within 3-5 business days.</p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">The refund will be processed automatically within 24 hours.</p>
               </div>
             ` : `
               <p style="color: #dc2626;">No refund applicable as per the cancellation policy.</p>
@@ -163,7 +163,7 @@ const cancelMultiplePasses = async (req, res) => {
     const cancelledPasses = [];
 
     for (const pass of passes) {
-      if (pass.bookedBy._id.toString() !== visitorId) {
+      if (pass.bookedBy._id.toString() !== visitorId.toString()) {
         return res.status(403).json({ 
           success: false,
           message: "Not authorized" 
@@ -181,7 +181,7 @@ const cancelMultiplePasses = async (req, res) => {
       
       if (refundAmount > 0 && pass.paymentStatus === "PAID") {
         pass.refundAmount = refundAmount;
-        pass.refundStatus = "INITIATED";
+        pass.refundStatus = "COMPLETED";
         pass.paymentStatus = "REFUNDED";
         totalRefund += refundAmount;
       }
@@ -203,6 +203,7 @@ const cancelMultiplePasses = async (req, res) => {
               ${pass.refundAmount > 0 ? `
                 <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0;">
                   <p style="margin: 0;"><strong>Refund Amount:</strong> ₹${pass.refundAmount}</p>
+                  <p style="margin: 5px 0 0 0; font-size: 14px;">The refund will be processed automatically within 24 hours.</p>
                 </div>
               ` : ''}
               

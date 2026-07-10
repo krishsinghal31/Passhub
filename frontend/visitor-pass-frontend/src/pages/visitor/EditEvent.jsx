@@ -21,6 +21,12 @@ const EditEvent = () => {
       beforeVisitPercent: 80,
       sameDayPercent: 50,
       description: ''
+    },
+    payoutDetails: {
+      bankName: '',
+      accountNumber: '',
+      accountHolderName: '',
+      ifscCode: ''
     }
   });
   const [loading, setLoading] = useState(true);
@@ -46,6 +52,12 @@ const EditEvent = () => {
             beforeVisitPercent: 80,
             sameDayPercent: 50,
             description: ''
+          },
+          payoutDetails: place.payoutDetails || {
+            bankName: '',
+            accountNumber: '',
+            accountHolderName: '',
+            ifscCode: ''
           }
         });
       }
@@ -148,6 +160,18 @@ const EditEvent = () => {
               />
             </div>
 
+            {/* Platform Fee & Refund Info Box */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm text-blue-900 space-y-2">
+              <p className="font-bold flex items-center gap-2">
+                <span>ℹ️</span> Platform Fee & Cancellation Policies
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-xs text-gray-600">
+                <li>There is a <strong>5% platform fee</strong> charged on total profit. Please set your ticket price accordingly.</li>
+                <li>If a visitor cancels their pass, their refund is automatically processed and credited within <strong>24 hours</strong>.</li>
+                <li>If the host or admin cancels the event, all visitors automatically receive a <strong>100% full refund</strong>.</li>
+              </ul>
+            </div>
+
             {/* Price */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Price (₹) *</label>
@@ -163,6 +187,59 @@ const EditEvent = () => {
                 />
               </div>
             </div>
+
+            {/* Bank Payout Account Details */}
+            {form.price > 0 && (
+              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4 animate-in fade-in duration-300">
+                <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <span>🏦</span> Bank Payout Account (Required to receive money)
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">Account Holder Name *</label>
+                    <input 
+                      placeholder="e.g. John Doe"
+                      value={form.payoutDetails.accountHolderName}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, accountHolderName: e.target.value } })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white text-gray-800"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">Bank Name *</label>
+                    <input 
+                      placeholder="e.g. HDFC Bank"
+                      value={form.payoutDetails.bankName}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, bankName: e.target.value } })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white text-gray-800"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">Account Number *</label>
+                    <input 
+                      type="password"
+                      placeholder="Enter account number"
+                      value={form.payoutDetails.accountNumber}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, accountNumber: e.target.value } })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white text-gray-800"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-2">IFSC Code *</label>
+                    <input 
+                      placeholder="e.g. HDFC0001234"
+                      value={form.payoutDetails.ifscCode}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, ifscCode: e.target.value.toUpperCase() } })}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white text-gray-800"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Refund Policy */}
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">

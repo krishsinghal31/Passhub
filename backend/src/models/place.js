@@ -17,6 +17,10 @@ const placeSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    passBackground: {
+      type: String,
+      default: null
+    },
     description: {
       type: String,
       default: ""
@@ -105,6 +109,21 @@ const placeSchema = new mongoose.Schema(
     isBookingEnabled: {
       type: Boolean,
       default: true
+    },
+    status: {
+      type: String,
+      enum: ["ACTIVE", "COMPLETED", "CANCELLED"],
+      default: "ACTIVE"
+    },
+    isSummaryEmailSent: {
+      type: Boolean,
+      default: false
+    },
+    payoutDetails: {
+      bankName: { type: String, default: null },
+      accountNumber: { type: String, default: null },
+      accountHolderName: { type: String, default: null },
+      ifscCode: { type: String, default: null }
     }
   },
   {

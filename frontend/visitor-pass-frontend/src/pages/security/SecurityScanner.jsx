@@ -11,6 +11,7 @@ const SecurityScanner = () => {
   const [error, setError] = useState(null);
   const [isScanning, setIsScanning] = useState(true);
   const html5QrCodeRef = useRef(null);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
     const html5QrCode = new Html5Qrcode("reader");
@@ -48,10 +49,13 @@ const SecurityScanner = () => {
   }, []);
 
   const onScanSuccess = async (decodedText) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     try {
       // Stop the camera feed once a code is found
       if (html5QrCodeRef.current) {
         await html5QrCodeRef.current.stop();
+        await html5QrCodeRef.current.clear();
       }
       setIsScanning(false);
 
@@ -87,6 +91,8 @@ const SecurityScanner = () => {
     } catch (err) {
       setError(err.response?.data?.message || "Invalid or tampered QR code");
       setScanResult(null);
+    } finally {
+      isProcessingRef.current = false;
     }
   };
 
@@ -97,6 +103,12 @@ const SecurityScanner = () => {
     
     if (html5QrCodeRef.current) {
       try {
+        // Ensure previous stream/canvas is fully reset before restarting
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop();
+        }
+        await html5QrCodeRef.current.clear();
+
         await html5QrCodeRef.current.start(
           { facingMode: "environment" },
           { fps: 20, qrbox: { width: 280, height: 280 } },

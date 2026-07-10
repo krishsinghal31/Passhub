@@ -19,7 +19,6 @@ import SecurityLogin from './pages/security/Login';
 import SecurityDashboard from './pages/security/Dashboard';
 import SecurityChangePassword from './pages/security/ChangePassword';
 import SecurityActivityLog from './pages/security/ActivityLog';
-import Subscriptions from './pages/shared/Subscriptions';
 import Profile from './pages/shared/Profile';
 import NotFound from './pages/shared/NotFound';
 import AdminManageEvent from './pages/admin/ManageEvent';
@@ -64,8 +63,6 @@ const App = () => {
               <Route path="/security/change-password" element={<SecurityChangePassword />} />
               <Route path="/change-password" element={<SecurityChangePassword />} />
               
-              {/* Shared Routes */}
-              <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/profile" element={<Profile />} />
               
               {/* 404 */}

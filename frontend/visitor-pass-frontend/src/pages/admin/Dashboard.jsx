@@ -552,12 +552,13 @@
 
 
 // src/pages/admin/Dashboard.jsx 
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import { 
   Users, Activity, UserCog, BarChart3, UserPlus, 
-  Calendar, CreditCard, LayoutDashboard, Settings, ShieldCheck, Search
+  Calendar, CreditCard, LayoutDashboard, ShieldCheck, Search,
+  IndianRupee, Banknote
 } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
@@ -566,7 +567,6 @@ import AdminCard from '../../components/admin/AdminCard';
 import InviteAdminModal from '../../components/admin/InviteAdminModal';
 import AdminEventCard from '../../components/admin/AdminEventCard';
 import HostCard from '../../components/admin/HostCard';
-import CreateSubscriptionPlanModal from '../../components/admin/CreateSubscriptionPlanModal';
 import SeatsStatusModal from '../../components/common/SeatsStatusModal';
 import PassHubLogo from '../../components/common/PassHubLogo';
 
@@ -574,13 +574,7 @@ const AdminDashboard = () => {
   const { user, loading } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('overview');
 
-  const [adminCoverImage, setAdminCoverImage] = useState(() => {
-    return (
-      localStorage.getItem('admin_cover_image') ||
-      'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80'
-    );
-  });
-  const adminCoverInputRef = useRef(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Data States (Logic unchanged)
   const [users, setUsers] = useState([]);
@@ -588,6 +582,7 @@ const AdminDashboard = () => {
   const [events, setEvents] = useState([]);
   const [hosts, setHosts] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [completedEvents, setCompletedEvents] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -600,7 +595,6 @@ const AdminDashboard = () => {
   // UI States (Logic unchanged)
   const [dataLoading, setDataLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
   const [showSeatsModal, setShowSeatsModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -642,9 +636,9 @@ const AdminDashboard = () => {
         if (hostsRes.data.success) setHosts(hostsRes.data.hosts || []);
       }
 
-      if (activeTab === 'plans' && user?.role === 'SUPER_ADMIN') {
-        const plansRes = await api.get('/admin/subscription-plans');
-        if (plansRes.data.success) setPlans(plansRes.data.plans || []);
+      if (activeTab === 'completed-events') {
+        const completedRes = await api.get('/admin/completed-events');
+        if (completedRes.data.success) setCompletedEvents(completedRes.data.events || []);
       }
 
       if (activeTab === 'analytics' && user?.role === 'SUPER_ADMIN') {
@@ -696,13 +690,18 @@ const AdminDashboard = () => {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'hosts', label: 'Hosts', icon: UserCog },
+    { id: 'completed-events', label: 'Completed & Payouts', icon: Banknote },
     ...(user?.role === 'SUPER_ADMIN' ? [
       { id: 'admins', label: 'Admins', icon: ShieldCheck },
-      { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-      { id: 'plans', label: 'Subscription Plans', icon: CreditCard }
+      { id: 'analytics', label: 'Analytics', icon: BarChart3 }
     ] : [])
   ];
   const activeTabTitle = navItems.find((item) => item.id === activeTab)?.label || 'Overview';
+  const search = searchTerm.trim().toLowerCase();
+  const filteredUsers = users.filter((u) => `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(search));
+  const filteredEvents = events.filter((e) => `${e.title || ''} ${e.location || ''} ${e.host?.name || ''}`.toLowerCase().includes(search));
+  const filteredHosts = hosts.filter((h) => `${h.name || ''} ${h.email || ''}`.toLowerCase().includes(search));
+  const filteredAdmins = admins.filter((a) => `${a.name || ''} ${a.email || ''}`.toLowerCase().includes(search));
 
   return (
     <PageWrapper className="min-h-screen bg-[#0a0b10] text-slate-300">
@@ -784,8 +783,8 @@ const AdminDashboard = () => {
   <div className="flex flex-col gap-2">
     <PassHubLogo compact className="text-white mb-1" />
     <div className="flex items-center gap-3 mb-1">
-      <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] animate-pulse" />
-      <span className="text-[10px] font-mono text-indigo-500/60 tracking-[0.3em] uppercase">System Active</span>
+      {/* <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] animate-pulse" />
+      <span className="text-[10px] font-mono text-indigo-500/60 tracking-[0.3em] uppercase">System Active</span> */}
     </div>
     
     <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic flex items-baseline gap-4 leading-none">
@@ -794,7 +793,7 @@ const AdminDashboard = () => {
     </h2>
   </div>
 
-  {/* Right Side: Image & Actions */}
+  {/* Right Side: Actions */}
   <div className="flex items-center gap-6">
     {/* Action Button - Scaled to match image height */}
     {activeTab === 'admins' && user?.role === 'SUPER_ADMIN' && (
@@ -802,47 +801,21 @@ const AdminDashboard = () => {
         onClick={() => setShowInviteModal(true)}
         className="h-14 bg-indigo-600 hover:bg-indigo-500 text-white px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-3 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
       >
-        <UserPlus size={18} /> Provision Admin
+        <UserPlus size={18} /> Invite Admin
       </button>
     )}
 
-    {/* The Cover Image - Fixed Aspect Ratio (2:1) */}
-    <div className="relative group">
-      <div className="h-14 w-32 relative overflow-hidden rounded-2xl border border-white/10 bg-slate-800 shadow-xl transition-all duration-500 group-hover:border-indigo-500/50 group-hover:w-48">
-        <img 
-          src={adminCoverImage} 
-          className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-all duration-700" 
-          alt="Admin Branding" 
+    {['users', 'events', 'hosts', 'admins'].includes(activeTab) && (
+      <div className="max-w-sm relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+        <input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder={`Search ${activeTab}...`}
+          className="w-72 bg-[#0f111a] border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/60"
         />
-        
-        {/* Hover Overlay */}
-        <button 
-          onClick={() => adminCoverInputRef.current?.click()} 
-          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300"
-        >
-          <span className="text-[9px] font-black uppercase tracking-tighter text-white">Edit Grid</span>
-        </button>
       </div>
-
-      {/* Hidden Input */}
-      <input 
-        ref={adminCoverInputRef} 
-        type="file" 
-        className="hidden" 
-        onChange={(e) => {
-          const file = e.target.files?.[0]; if (!file) return;
-          const reader = new FileReader();
-          reader.onloadend = () => { 
-            setAdminCoverImage(reader.result); 
-            localStorage.setItem('admin_cover_image', reader.result); 
-          };
-          reader.readAsDataURL(file);
-        }} 
-      />
-      
-      {/* Decorative HUD Corner */}
-      <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-indigo-500/30 rounded-tr-md pointer-events-none" />
-    </div>
+    )}
   </div>
 </header>
 
@@ -856,10 +829,9 @@ const AdminDashboard = () => {
               
               {/* Stats Overview Grid */}
       {activeTab === 'overview' && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                   <StatWidget label="Total Users" value={stats.totalUsers} icon={<Users />} trend="+12%" color="indigo" />
                   <StatWidget label="Total Events" value={stats.totalEvents} icon={<Calendar />} trend="Live" color="emerald" />
-                  <StatWidget label="Active Subscribers" value={stats.activeSubscribers} icon={<Activity />} trend="+4%" color="purple" />
                   <StatWidget label="Total Revenue" value={`₹${stats.totalRevenue}`} icon={<BarChart3 />} trend="+18.5%" color="orange" />
                 </div>
               )}
@@ -877,7 +849,7 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {users.map((u) => (
+                      {filteredUsers.map((u) => (
                         <tr key={u._id} className="hover:bg-white/[0.01] transition-colors group">
                           <td className="px-8 py-5">
                             <div className="font-bold text-slate-200 group-hover:text-indigo-400 transition-colors">{u.name}</div>
@@ -908,65 +880,116 @@ const AdminDashboard = () => {
 
               {activeTab === 'events' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {events.map(event => <AdminEventCard key={event._id} event={event} onEventUpdate={fetchData} onSeatsStatus={handleSeatsStatus} />)}
+                  {filteredEvents.map(event => <AdminEventCard key={event._id} event={event} onEventUpdate={fetchData} onSeatsStatus={handleSeatsStatus} />)}
                 </div>
               )}
 
               {activeTab === 'hosts' && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  {hosts.map(host => <HostCard key={host._id} host={host} />)}
+                  {filteredHosts.map(host => <HostCard key={host._id} host={host} />)}
                 </div>
               )}
 
               {activeTab === 'admins' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {admins.map(admin => <AdminCard key={admin._id} admin={admin} onDisable={handleDisableAdmin} />)}
+                  {filteredAdmins.map(admin => <AdminCard key={admin._id} admin={admin} onDisable={handleDisableAdmin} />)}
                 </div>
               )}
 
-              {activeTab === 'plans' && (
-                <div className="space-y-8">
-                  <div className="bg-[#0f111a] border border-white/5 p-8 rounded-[2rem] flex flex-col md:flex-row justify-between items-center gap-6">
-                     <div>
-                       <h3 className="text-xl font-black text-white italic uppercase">Subscription Plans</h3>
-                       <p className="text-slate-500 text-xs font-medium">Manage platform pricing tiers and feature access.</p>
-                     </div>
-                     <button onClick={() => setShowCreatePlanModal(true)} className="bg-white text-black px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200">Create Plan</button>
+              {activeTab === 'completed-events' && (
+                <div className="space-y-8 animate-in fade-in duration-300">
+                  <div className="bg-[#0f111a] border border-white/5 p-8 rounded-[2rem]">
+                    <h3 className="text-xl font-black text-white italic uppercase flex items-center gap-3">
+                      <Banknote className="text-emerald-400" size={24} /> Completed Events & Payout Summary
+                    </h3>
+                    <p className="text-slate-500 text-xs font-medium mt-1">
+                      Monitor completed experiences, platform commissions, payment gateway fees, and automated host bank payout statuses.
+                    </p>
                   </div>
-                  <div className="grid md:grid-cols-3 gap-8">
-                    {plans.map(plan => (
-                      <div key={plan._id} className="bg-[#0f111a] border border-white/5 p-8 rounded-[2.5rem] relative group hover:border-indigo-500/30 transition-all">
-                        <div className="flex justify-between items-start mb-6">
-                          <h4 className="text-lg font-black text-white">{plan.name}</h4>
-                          <span className={`text-[8px] font-black px-2 py-1 rounded border ${plan.isActive ? 'border-emerald-500/50 text-emerald-500' : 'border-red-500/50 text-red-500'}`}>
-                            {plan.isActive ? 'ACTIVE' : 'OFFLINE'}
-                          </span>
-                        </div>
-                        <p className="text-2xl font-black text-white mb-6">₹{plan.price}<span className="text-xs text-slate-500"> / {plan.durationDays}D</span></p>
-                        <div className="space-y-3 mb-8">
-                          {plan.features?.slice(0, 3).map((f, i) => (
-                            <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                               <div className="w-1 h-1 bg-indigo-500 rounded-full" /> {f}
+                  
+                  {completedEvents.length === 0 ? (
+                    <div className="bg-[#0f111a] border border-white/5 p-12 rounded-[2.5rem] text-center text-slate-500 font-bold uppercase tracking-wider text-xs">
+                      No completed events yet
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {completedEvents.map((event) => (
+                        <div key={event._id} className="bg-[#0f111a] border border-white/5 p-8 rounded-[2.5rem] relative group hover:border-indigo-500/30 transition-all flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start mb-6">
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black rounded-lg uppercase tracking-widest">
+                                  Payout Sent
+                                </span>
+                              </div>
+                              <div className="text-[10px] font-bold text-slate-500">
+                                Ended: {new Date(event.eventDates?.end).toLocaleDateString()}
+                              </div>
                             </div>
-                          ))}
+                            
+                            <h4 className="text-lg font-black text-white mb-2 uppercase tracking-tight">{event.name}</h4>
+                            <p className="text-xs text-slate-400 mb-6 font-semibold flex items-center gap-1.5">
+                              <span>📍</span> {event.location}
+                            </p>
+                            
+                            <div className="border-t border-b border-white/5 py-4 mb-6 space-y-3">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-slate-500 font-bold">Host:</span>
+                                <span className="text-slate-200 font-black">{event.host?.name} ({event.host?.email})</span>
+                              </div>
+                              {event.payoutDetails && event.payoutDetails.accountNumber ? (
+                                <div className="bg-white/5 rounded-2xl p-4 space-y-1.5 text-xs text-slate-400 border border-white/5">
+                                  <p className="text-[10px] font-black uppercase text-indigo-400 tracking-wider mb-1">🏦 Host Payout Details</p>
+                                  <p><strong>Account Holder:</strong> {event.payoutDetails.accountHolderName}</p>
+                                  <p><strong>Bank:</strong> {event.payoutDetails.bankName}</p>
+                                  <p><strong>A/C:</strong> {event.payoutDetails.accountNumber}</p>
+                                  <p><strong>IFSC:</strong> {event.payoutDetails.ifscCode}</p>
+                                </div>
+                              ) : (
+                                <div className="bg-red-500/5 rounded-2xl p-4 text-xs text-red-400 border border-red-500/10 font-bold">
+                                  ⚠️ Host has not added bank details yet.
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="bg-[#0a0b10] rounded-3xl p-6 border border-white/5 space-y-4">
+                              <h5 className="text-[10px] font-black uppercase text-indigo-400 tracking-wider">Financial Breakdown</h5>
+                              <div className="space-y-2.5">
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-slate-500 font-semibold">Tickets Sold:</span>
+                                  <span className="text-white font-black">{event.financials?.totalTicketsSold} Passes</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-slate-500 font-semibold">Total Revenue Collected:</span>
+                                  <span className="text-emerald-400 font-black">₹{event.financials?.totalMoneyCollected}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-slate-500 font-semibold">Visitor Refunds Issued:</span>
+                                  <span className="text-rose-400 font-black">- ₹{event.financials?.totalRefundMoney}</span>
+                                </div>
+                                <div className="flex justify-between text-xs border-t border-white/5 pt-2">
+                                  <span className="text-slate-400 font-bold">Net Profit:</span>
+                                  <span className="text-white font-black">₹{event.financials?.netProfit}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-slate-500 font-semibold">Platform Fee (5%):</span>
+                                  <span className="text-rose-400 font-black">- ₹{event.financials?.platformFee}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-slate-500 font-semibold">Payment Gateway Fee (2%):</span>
+                                  <span className="text-rose-400 font-black">- ₹{event.financials?.gatewayFee}</span>
+                                </div>
+                                <div className="flex justify-between text-sm border-t border-indigo-500/20 pt-3">
+                                  <span className="text-indigo-400 font-black uppercase tracking-wider text-xs">Host Net Payout:</span>
+                                  <span className="text-emerald-400 font-black text-base flex items-center"><IndianRupee size={14}/> {event.financials?.hostPayout}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                           <button onClick={async () => {
-                             const res = await api.patch(`/admin/subscription-plans/${plan._id}/toggle`);
-                             if (res.data.success) fetchData();
-                           }} className="flex-1 bg-white/5 border border-white/5 text-[9px] font-black uppercase py-3 rounded-xl hover:bg-white/10 transition-all">Toggle</button>
-                           <button onClick={async () => {
-                              if (window.confirm('Delete?')) {
-                                const res = await api.delete(`/admin/subscription-plans/${plan._id}`);
-                                if (res.data.success) fetchData();
-                              }
-                           }} className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                             <ShieldCheck size={14} />
-                           </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1015,7 +1038,6 @@ const AdminDashboard = () => {
       </div>
 
       <InviteAdminModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} onSuccess={fetchData} />
-      <CreateSubscriptionPlanModal isOpen={showCreatePlanModal} onClose={() => setShowCreatePlanModal(false)} onSuccess={fetchData} />
       {showSeatsModal && selectedEvent && (
         <SeatsStatusModal 
           isOpen={showSeatsModal} 

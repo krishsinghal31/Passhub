@@ -380,6 +380,7 @@ import { AuthContext } from '../../context/AuthContext';
 import api from '../../utils/api';
 import BookingCard from '../../components/visitor/BookingCard';
 import { Calendar, Users, Ticket, Plus, TrendingUp, Clock, CheckCircle, ArrowRight, UserCircle2, Settings, Zap, MapPin, Activity, ShieldCheck } from 'lucide-react';
+import { buildPassFilename, downloadDataUrl, generatePassImageDataUrl } from '../../utils/passImage';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
@@ -388,6 +389,7 @@ const Dashboard = () => {
   const [passes, setPasses] = useState([]);
   const [events, setEvents] = useState([]);
   const [securityAssignments, setSecurityAssignments] = useState([]);
+  const [passImageMap, setPassImageMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     activePasses: 0,
@@ -403,7 +405,7 @@ const Dashboard = () => {
         const [passesRes, bookingsRes, eventsRes, securityRes] = await Promise.all([
           api.get('/passes/my-passes'),
           api.get('/passes/bookings'),
-          (user?.role === 'HOST' || user?.subscription?.isActive) ? api.get('/host/events') : Promise.resolve(null),
+          api.get('/host/events').catch(() => null),
           api.get('/security/my-assignments').catch(() => null)
         ]);
 
@@ -437,6 +439,29 @@ const Dashboard = () => {
     };
     if (user) fetchData();
   }, [user]);
+
+  useEffect(() => {
+    const generateCards = async () => {
+      const entries = {};
+      for (const pass of passes) {
+        if (!pass?.qrImage) continue;
+        try {
+          entries[pass._id] = await generatePassImageDataUrl({
+            eventName: pass.place?.name,
+            guestName: pass.guest?.name,
+            visitDate: pass.visitDate,
+            qrImage: pass.qrImage,
+            passBackground: pass.place?.passBackground,
+            eventImage: pass.place?.image
+          });
+        } catch (e) {
+          // ignore single-pass generation failures
+        }
+      }
+      setPassImageMap(entries);
+    };
+    if (passes.length) generateCards();
+  }, [passes]);
 
   if (loading) {
     return (
@@ -478,7 +503,7 @@ const Dashboard = () => {
                 <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
                   <ShieldCheck size={12} /> {user?.role || 'User'}
                 </span>
-                <span className="text-slate-500 text-xs font-medium">Session Active</span>
+                {/* <span className="text-slate-500 text-xs font-medium">Session Active</span> */}
               </div>
             </div>
           </div>
@@ -487,11 +512,9 @@ const Dashboard = () => {
             <button onClick={() => navigate('/profile')} className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-600 text-slate-400 hover:text-white transition-all shadow-xl">
               <Settings size={20} />
             </button>
-            {(user?.role === 'HOST' || user?.subscription?.isActive) && (
-              <button onClick={() => navigate('/create-event')} className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-cyan-400 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                <Plus size={18} /> Create Event
-              </button>
-            )}
+            <button onClick={() => navigate('/create-event')} className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-cyan-400 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+              <Plus size={18} /> Create Event
+            </button>
           </div>
         </div>
 
@@ -501,7 +524,6 @@ const Dashboard = () => {
           <div className="lg:col-span-3 space-y-4">
             <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-2 rounded-2xl flex flex-col gap-1">
               {['overview', 'passes', 'bookings', 'hosted', 'security'].map((tab) => {
-                if (tab === 'hosted' && !(user?.role === 'HOST' || user?.subscription?.isActive)) return null;
                 if (tab === 'security' && securityAssignments.length === 0) return null;
                 return (
                   <button
@@ -522,9 +544,7 @@ const Dashboard = () => {
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Activity Analytics</p>
               <MiniStat label="Digital Passes" value={stats.activePasses} icon={<Ticket size={16}/>} color="text-cyan-400" />
               <MiniStat label="Event History" value={stats.totalBookings} icon={<Calendar size={16}/>} color="text-indigo-400" />
-              {(user?.role === 'HOST' || user?.subscription?.isActive) && (
-                <MiniStat label="Hosted Hubs" value={stats.hostedEvents} icon={<TrendingUp size={16}/>} color="text-emerald-400" />
-              )}
+              <MiniStat label="Hosted Hubs" value={stats.hostedEvents} icon={<TrendingUp size={16}/>} color="text-emerald-400" />
               {securityAssignments.length > 0 && (
                 <MiniStat label="Security Assignments" value={securityAssignments.length} icon={<ShieldCheck size={16}/>} color="text-cyan-400" />
               )}
@@ -554,8 +574,8 @@ const Dashboard = () => {
                 {passes.length > 0 ? passes.map(pass => (
                   <div key={pass._id} className="group relative bg-slate-900 border border-slate-800 rounded-[2rem] p-6 flex gap-6 hover:border-slate-500 transition-all">
                     <div className="flex-shrink-0">
-                      <div className="p-2 bg-white rounded-2xl shadow-xl w-28 h-28 group-hover:scale-105 transition-transform">
-                        <img src={pass.qrImage} alt="QR" className="w-full h-full object-contain mix-blend-multiply" />
+                      <div className="p-1 bg-white rounded-2xl shadow-xl w-40 h-24 group-hover:scale-105 transition-transform overflow-hidden">
+                        <img src={passImageMap[pass._id] || pass.qrImage} alt="Pass Card" className="w-full h-full object-cover" />
                       </div>
                     </div>
                     <div className="flex-1">
@@ -577,6 +597,33 @@ const Dashboard = () => {
                           {pass.place?.location || 'Venue Hub'}
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const dataUrl = passImageMap[pass._id];
+                          if (!dataUrl) return;
+                          const filename = buildPassFilename({
+                            eventName: pass.place?.name,
+                            guestName: pass.guest?.name,
+                            visitDate: pass.visitDate
+                          });
+                          downloadDataUrl(dataUrl, filename);
+                        }}
+                        className="mt-3 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-cyan-500 text-slate-950 hover:bg-cyan-400 transition-all"
+                      >
+                        Download Pass
+                      </button>
+                      {pass.bookingId && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/booking/${pass.bookingId}`);
+                          }}
+                          className="mt-2 ml-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition-all"
+                        >
+                          Cancel / Manage
+                        </button>
+                      )}
                     </div>
                   </div>
                 )) : <EmptyState icon={<Ticket/>} text="No Active Entry Permits" />}

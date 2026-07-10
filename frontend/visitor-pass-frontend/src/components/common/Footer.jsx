@@ -228,15 +228,10 @@ const Footer = () => {
               Built for speed, secured by code.
             </p>
             <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 max-w-md">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-3">Subscription Gateway</p>
-              <div className="flex flex-wrap gap-3 mb-3 text-xs font-semibold text-slate-200">
-                <span className="inline-flex items-center gap-1.5"><CreditCard size={14} /> Razorpay</span>
-                <span className="inline-flex items-center gap-1.5"><Landmark size={14} /> Stripe</span>
-                <span className="inline-flex items-center gap-1.5 text-emerald-300"><ShieldCheck size={14} /> Secure</span>
-              </div>
-              <Link to="/subscriptions" className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-950 hover:bg-cyan-400 transition-colors">
-                Purchase Subscription <ArrowUpRight size={14} />
-              </Link>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-2">Gatekeeping Protocol</p>
+              <p className="text-slate-400 text-xs leading-relaxed font-semibold">
+                Digitized receptionist check-ins, automated visitor passes, and robust host security analytics.
+              </p>
             </div>
             <div className="flex gap-4">
               {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (

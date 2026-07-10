@@ -74,6 +74,13 @@ const authMiddleware = async (req, res, next) => {
         });
       }
 
+      if (!user.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is disabled by admin'
+        });
+      }
+
       req.user = {
         id: user._id,
         role: user.role,

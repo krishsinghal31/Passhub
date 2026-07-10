@@ -11,11 +11,9 @@ exports.confirmPayment = async (req, res) => {
   try {
     const { bookingId } = req.body;
     const userId = req.user.id;
-    const passes = await Pass.find({ bookingId }).populate('place');
-
-    // const passes = await Pass.find({ bookingId })
-    //   .populate("bookedBy", "name email")
-    //   .populate("place");
+    const passes = await Pass.find({ bookingId })
+      .populate('place')
+      .populate('bookedBy', 'name email');
 
     if (!passes.length) {
       return res.status(404).json({ 
@@ -101,38 +99,7 @@ exports.confirmPayment = async (req, res) => {
 
         passesWithQR.push(pass);
 
-        if (pass.guest.email) {
-          emailAttempts += 1;
-          try {
-            // Convert base64 QR image to attachment
-            const attachments = [];
-            if (pass.qrImage && pass.qrImage.startsWith('data:image')) {
-              const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
-              attachments.push({
-                filename: `qr-pass-${pass._id}.png`,
-                content: base64Data,
-                encoding: 'base64',
-                cid: `qr-${pass._id}`
-              });
-            }
-
-            await sendPassEmail({
-              to: pass.guest.email,
-              subject: `Your Pass for ${place.name}`,
-              html: passEmailTemplate({
-                guest: pass.guest,
-                place,
-                visitDate: pass.visitDate,
-                passes: [pass] // Send only this guest's pass
-              }),
-              attachments: attachments
-            });
-            console.log(`✅ Pass email sent to: ${pass.guest.email}`);
-          } catch (emailError) {
-            emailFailures += 1;
-            console.error(`❌ Failed to send email to ${pass.guest.email}:`, emailError);
-          }
-        }
+        // Individual guest emails disabled. Only consolidated summary email is sent to the booker.
       }
     }
 
@@ -144,51 +111,9 @@ exports.confirmPayment = async (req, res) => {
       await booking.save();
     }
 
-    // ✅ FIXED: Send summary email to booker with ALL QR codes
-    const visitorEmail = passes[0].bookedBy.email;
-    if (visitorEmail) {
-      emailAttempts += 1;
-      try {
-        // Convert all QR images to attachments
-        const attachments = passesWithQR
-          .filter(p => p.qrImage && p.qrImage.startsWith('data:image'))
-          .map(pass => {
-            const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
-            return {
-              filename: `qr-pass-${pass._id}.png`,
-              content: base64Data,
-              encoding: 'base64',
-              cid: `qr-${pass._id}`
-            };
-          });
-        
-        await sendPassEmail({
-          to: visitorEmail,
-          subject: `Payment Confirmed - ${place.name}`,
-          html: passEmailTemplate({
-            guest: passes[0].bookedBy,
-            place,
-            visitDate: place.ticketAccessMode === "ALL_DAYS" ? place.eventDates.start : passes[0].visitDate,
-            passes: passesWithQR // Send all passes
-          }),
-          attachments: attachments
-        });
-        console.log(`✅ Summary email sent to: ${visitorEmail}`);
-      } catch (emailError) {
-        emailFailures += 1;
-        console.error(`❌ Failed to send summary email:`, emailError);
-      }
-    }
-
     res.json({
       success: true,
-      message: emailFailures > 0
-        ? `Payment confirmed. Passes generated. ${emailFailures}/${emailAttempts} email(s) failed.`
-        : "Payment confirmed. Passes generated and emailed.",
-      emailStatus: {
-        attempted: emailAttempts,
-        failed: emailFailures
-      },
+      message: "Payment confirmed. Passes generated.",
       bookingId,
       passes: passesWithQR.map(p => ({
         passId: p._id,

@@ -2,7 +2,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
-const SubscriptionPlan = require("../models/subscriptionplan");
 const { generateToken } = require("../services/token");
 
 const registerUser = async(req,res)=>{
@@ -27,38 +26,11 @@ const registerUser = async(req,res)=>{
     // ✅ Hash password BEFORE creating user
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    let defaultPlan = await SubscriptionPlan.findOne({ 
-      name: "Default 7-Day", 
-      price: 0 
-    });
-    
-    if (!defaultPlan) {
-      defaultPlan = await SubscriptionPlan.create({
-        name: "Default 7-Day",
-        price: 0,
-        durationDays: 7,
-        isActive: true,
-        description: "Free 7-day hosting for new users"
-      });
-    }
-
-    const now = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 7);
-
     const user = await User.create({
       name,
       email,
       password: hashedPassword,  // ✅ Already hashed
-      role: role || 'VISITOR',
-      subscription: {
-        planId: defaultPlan._id,
-        isActive: true,
-        startDate: now,
-        endDate: endDate,
-        amountPaid: 0,
-        paymentStatus: 'FREE'
-      }
+      role: role || 'VISITOR'
     });
 
     const token = generateToken(user);
@@ -66,14 +38,9 @@ const registerUser = async(req,res)=>{
 
     return res.status(201).json({
       success: true,
-      message: "User registered successfully with 7-day free hosting",
+      message: "User registered successfully",
       user,
-      token,
-      subscription: {
-        plan: "Default 7-Day",
-        validUntil: endDate,
-        daysRemaining: 7
-      }
+      token
     });
   }catch(error){
     return res.status(500).json({
@@ -106,7 +73,7 @@ const loginUser = async(req,res)=>{
   }
   
   try {
-    const user = await User.findOne({ email }).populate('subscription.planId');
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ 
         success: false,
@@ -128,22 +95,12 @@ const loginUser = async(req,res)=>{
       { expiresIn: "7d" }
     );
 
-    const now = new Date();
-    const subEnd = new Date(user.subscription.endDate);
-    const daysRemaining = Math.ceil((subEnd - now) / (1000 * 60 * 60 * 24));
-
     res.json({ 
       success: true,
       token, 
       role: user.role, 
       name: user.name, 
-      email: user.email,
-      subscription: {
-        isActive: user.subscription.isActive && now <= subEnd,
-        planName: user.subscription.planId?.name || "Default",
-        daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
-        endDate: user.subscription.endDate
-      }
+      email: user.email
     });
   } catch (err) {
     res.status(500).json({ 
@@ -166,29 +123,18 @@ const getMe = async (req, res) => {
           _id: "SUPER_ADMIN",
           name: "Super Admin",
           email: process.env.SUPER_ADMIN_EMAIL || "admin@passhub.com",
-          role: "SUPER_ADMIN",
-          subscription: { isActive: false }
+          role: "SUPER_ADMIN"
         }
       });
     }
     
-    const user = await User.findById(userId)
-      .select('-password')
-      .populate('subscription.planId');
+    const user = await User.findById(userId).select('-password');
     
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
-    }
-
-    // Calculate subscription days remaining
-    let daysRemaining = 0;
-    if (user.subscription && user.subscription.endDate) {
-      const now = new Date();
-      const endDate = new Date(user.subscription.endDate);
-      daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
     }
 
     res.json({
@@ -198,12 +144,7 @@ const getMe = async (req, res) => {
         _id: user._id, // Include both for compatibility
         name: user.name,
         email: user.email,
-        role: user.role,
-        subscription: {
-          ...user.subscription.toObject(),
-          daysRemaining: Math.max(0, daysRemaining),
-          planName: user.subscription.planId?.name || 'Default'
-        }
+        role: user.role
       }
     });
   } catch (error) {

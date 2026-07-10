@@ -5,7 +5,6 @@ const Pass = require("../models/pass");
 const Place = require("../models/place");
 const Security = require("../models/security");
 const Booking = require("../models/booking");
-const SubscriptionPlan = require("../models/subscriptionplan"); 
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sendAdminInviteMail } = require("../services/admininvitemail");
@@ -257,7 +256,7 @@ exports.disableUser = async (req, res) => {
 exports.getAllUpcomingEvents = async (req, res) => {
   try {
     const events = await Place.find({})
-      .populate('host', 'name email subscription')
+      .populate('host', 'name email')
       .sort({ "eventDates.start": 1 });
 
     const enriched = await Promise.all(
@@ -319,14 +318,8 @@ exports.getAllUpcomingEvents = async (req, res) => {
 
 exports.getAllHosts = async (req, res) => {
   try {
-    const hosts = await User.find({ 
-      $or: [
-        { role: 'HOST' },
-        { 'subscription.isActive': true }
-      ]
-    })
-      .select('name email subscription isActive createdAt')
-      .populate('subscription.planId')
+    const hosts = await User.find({ role: 'HOST' })
+      .select('name email isActive createdAt')
       .sort({ createdAt: -1 });
 
     const enriched = await Promise.all(
@@ -407,9 +400,23 @@ exports.toggleUserStatus = async (req, res) => {
     if (!user.isActive) {
       user.disabledAt = new Date();
       user.disabledReason = reason || 'Toggled by admin';
+      user.isHostingDisabled = true;
+
+      // Disable future event bookings for this user immediately.
+      await Place.updateMany(
+        { host: user._id, "eventDates.end": { $gte: new Date() } },
+        {
+          $set: {
+            isBookingEnabled: false,
+            cancellationReason: reason || 'Host account disabled by admin',
+            cancelledBy: 'ADMIN'
+          }
+        }
+      );
     } else {
       user.disabledAt = null;
       user.disabledReason = null;
+      user.isHostingDisabled = false;
     }
     await user.save();
 
@@ -460,7 +467,7 @@ exports.cancelEventByAdmin = async (req, res) => {
       totalRefundAmount += refundAmount;
 
       pass.status = 'CANCELLED';
-      pass.refundStatus = 'INITIATED';
+      pass.refundStatus = 'COMPLETED';
       pass.refundAmount = refundAmount;
       pass.refundPercentage = 100;
       pass.cancelledAt = new Date();
@@ -485,7 +492,7 @@ exports.cancelEventByAdmin = async (req, res) => {
     for (const [bookingId, data] of affectedBookings) {
       const booking = data.booking;
       booking.status = 'CANCELLED';
-      booking.refundStatus = 'FULL';
+      booking.refundStatus = 'COMPLETED';
       booking.refundAmount = data.refundAmount;
       booking.cancelledAt = new Date();
       booking.cancellationReason = `Event cancelled by admin: ${reason}`;
@@ -499,7 +506,7 @@ exports.cancelEventByAdmin = async (req, res) => {
           <p>We regret to inform you that the event "${place.name}" has been cancelled by the administration.</p>
           <p><strong>Reason:</strong> ${reason}</p>
           <p><strong>Refund Amount:</strong> ₹${data.refundAmount}</p>
-          <p>Your refund will be processed within 3-5 business days.</p>
+          <p>Your refund will be processed automatically within 24 hours.</p>
         `;
 
         await sendPassEmail({
@@ -561,7 +568,7 @@ exports.getEventDetailsForAdmin = async (req, res) => {
   try {
     const { eventId } = req.params;
 
-    const place = await Place.findById(eventId).populate('host', 'name email phone subscription');
+    const place = await Place.findById(eventId).populate('host', 'name email phone');
     
     if (!place) {
       return res.status(404).json({
@@ -623,17 +630,12 @@ exports.getDashboardStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$amountPaid' } } }
     ]);
 
-    const activeSubscribers = await User.countDocuments({ 
-      "subscription.isActive": true 
-    });
-
     res.json({
       success: true,
       stats: {
         totalUsers: totalUsers,
         totalEvents: totalEvents,
         totalPasses: totalPasses,
-        activeSubscribers: activeSubscribers,
         totalRevenue: revenueData[0]?.total || 0
       }
     });
@@ -653,90 +655,77 @@ exports.getBookedSeats = async (req, res) => {
   }
 };
 
-exports.createSubscriptionPlan = async (req, res) => {
+exports.getCompletedEventsWithPayouts = async (req, res) => {
   try {
-    if (req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
+    const Place = require("../models/place");
+    const Pass = require("../models/pass");
 
-    const { name, price, durationDays, description, features } = req.body;
+    // Find all completed events (where eventDates.end is in the past)
+    const now = new Date();
+    const completedEvents = await Place.find({
+      "eventDates.end": { $lt: now }
+    }).populate("host", "name email").sort({ "eventDates.end": -1 });
 
-    const plan = await SubscriptionPlan.create({
-      name,
-      price,
-      durationDays,
-      description,
-      features: features.filter(f => f.trim())
-    });
+    const enriched = await Promise.all(completedEvents.map(async (event) => {
+      const passes = await Pass.find({ place: event._id });
+      
+      const totalTicketsSold = passes.filter(p => p.status !== "PENDING").length;
+      
+      let totalMoneyCollected = 0;
+      let totalRefundMoney = 0;
+      let cancellationRevenue = 0;
 
-    res.status(201).json({
-      success: true,
-      message: 'Subscription plan created successfully',
-      plan
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+      for (const pass of passes) {
+        if (pass.status !== "PENDING") {
+          totalMoneyCollected += pass.amountPaid || 0;
+        }
+        if (pass.paymentStatus === "REFUNDED" || pass.refundStatus === "COMPLETED") {
+          totalRefundMoney += pass.refundAmount || 0;
+        }
+        if (pass.status === "CANCELLED" && pass.paymentStatus === "REFUNDED") {
+          const kept = (pass.amountPaid || 0) - (pass.refundAmount || 0);
+          if (kept > 0) {
+            cancellationRevenue += kept;
+          }
+        }
+      }
 
-exports.getSubscriptionPlans = async (req, res) => {
-  try {
-    if (req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
+      const netProfit = Math.max(0, totalMoneyCollected - totalRefundMoney);
+      
+      const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT) || 5;
+      const gatewayFeePercent = parseFloat(process.env.PAYMENT_GATEWAY_FEE_PERCENT) || 2;
+      
+      const platformFee = Math.round(netProfit * platformFeePercent / 100);
+      const gatewayFee = Math.round(totalMoneyCollected * gatewayFeePercent / 100);
+      const hostPayout = Math.max(0, netProfit - platformFee - gatewayFee);
 
-    const plans = await SubscriptionPlan.find().sort({ createdAt: -1 });
-    res.json({ success: true, plans });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-exports.toggleSubscriptionPlan = async (req, res) => {
-  try {
-    if (req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-
-    const { planId } = req.params;
-    const plan = await SubscriptionPlan.findById(planId);
-    if (!plan) {
-      return res.status(404).json({ success: false, message: 'Plan not found' });
-    }
-
-    plan.isActive = !plan.isActive;
-    await plan.save();
+      return {
+        _id: event._id,
+        name: event.name,
+        location: event.location,
+        eventDates: event.eventDates,
+        status: event.status,
+        host: event.host,
+        payoutDetails: event.payoutDetails,
+        financials: {
+          totalTicketsSold,
+          totalMoneyCollected,
+          totalRefundMoney,
+          cancellationRevenue,
+          netProfit,
+          platformFee,
+          gatewayFee,
+          hostPayout
+        }
+      };
+    }));
 
     res.json({
       success: true,
-      message: `Plan ${plan.isActive ? 'activated' : 'deactivated'} successfully`,
-      plan
+      count: enriched.length,
+      events: enriched
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// NEW: Delete subscription plan
-exports.deleteSubscriptionPlan = async (req, res) => {
-  try {
-    if (req.user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-
-    const { planId } = req.params;
-    const plan = await SubscriptionPlan.findById(planId);
-    if (!plan) {
-      return res.status(404).json({ success: false, message: 'Plan not found' });
-    }
-
-    await SubscriptionPlan.deleteOne({ _id: planId });
-
-    return res.json({
-      success: true,
-      message: 'Plan removed successfully'
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
   }
 };

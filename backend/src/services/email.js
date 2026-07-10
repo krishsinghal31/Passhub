@@ -7,40 +7,42 @@ const transporter = nodemailer.createTransport({
   host: host || "smtp.gmail.com",
   port: Number(port || 587),
   secure: Number(port) === 465,
-  auth: {
-    user: user,
-    pass: password
-  },
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
-  rateDelta: 1000,
-  rateLimit: 5,
-  tls: {
-    rejectUnauthorized: false
-  }
+  auth: { user, pass: password }
 });
 
-transporter.verify((error, success) => {
+transporter.verify((error) => {
   if (error) {
     console.error('❌ SMTP Connection Error:', error.message);
-    console.error('⚠️ Check MAIL_USER, MAIL_PASS, MAIL_HOST, MAIL_PORT in backend .env');
   } else {
     console.log('✅ SMTP Server is ready to send emails');
   }
 });
 
-
 const sendPassEmail = async ({ to, subject, html, attachments = [] }) => {
   try {
-    await transporter.sendMail({
-      from: `"PassHub" <${process.env.MAIL_USER || user}>`,
+    const formattedAttachments = (attachments || []).map((a) => {
+      let content = a.content;
+      if (typeof a.content === "string" && (a.encoding === "base64" || !a.encoding)) {
+        content = Buffer.from(a.content, "base64");
+      }
+      return {
+        filename: a.filename,
+        content,
+        cid: a.cid
+      };
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || `"Visitor Pass System" <${user}>`,
       to,
       subject,
       html,
-      attachments
-    });
-    console.log(`✅ Email sent to ${to}`);
+      attachments: formattedAttachments
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent to ${to}: ${info.messageId}`);
+    return info;
   } catch (error) {
     console.error(`❌ Failed to send email to ${to}:`, error.message);
     throw error;
@@ -54,20 +56,14 @@ const sendCancellationEmail = async ({ to, subject, html, type = 'visitor' }) =>
       return null;
     }
 
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || `"Visitor Pass System" <${process.env.MAIL_USER || user}>`,
+    const info = await sendPassEmail({
       to,
       subject,
-      html,
-      headers: {
-        'X-Cancellation-Type': type,
-        'X-Auto-Response-Suppress': 'All'
-      }
-    };
+      html
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Cancellation email sent to ${to}: ${info.messageId}`);
-    return info;
+    console.log(`✅ Cancellation email sent to ${to}`);
+    return { messageId: info?.messageId || `smtp-${Date.now()}` };
   } catch (error) {
     console.error(`❌ Failed to send cancellation email to ${to}:`, error);
     throw error;

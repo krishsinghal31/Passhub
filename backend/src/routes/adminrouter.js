@@ -17,11 +17,8 @@ router.get("/hosts", adminAuth, adminController.getAllHosts);
 router.post("/events/:eventId/cancel", adminAuth, adminController.cancelEventByAdmin);
 router.get("/events/:eventId/details", adminAuth, adminController.getEventDetailsForAdmin);
 
-// NEW routes for subscription plans and seats
-router.post("/subscription-plans", superAdminAuth, adminController.createSubscriptionPlan);
-router.get("/subscription-plans", superAdminAuth, adminController.getSubscriptionPlans);
-router.patch("/subscription-plans/:planId/toggle", superAdminAuth, adminController.toggleSubscriptionPlan);
-router.delete("/subscription-plans/:planId", superAdminAuth, adminController.deleteSubscriptionPlan);
+// Completed events payouts routes
+router.get("/completed-events", adminAuth, adminController.getCompletedEventsWithPayouts);
 router.get("/events/:eventId/booked-seats", adminAuth, adminController.getBookedSeats);
 
 module.exports = router;

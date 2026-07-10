@@ -14,6 +14,7 @@ const EventForm = ({ onBeforeSubmit, onSuccess }) => {
     name: '', 
     location: '', 
     image: '',
+    passBackground: '',
     description: '',
     eventDates: { start: '', end: '' }, 
     ticketAccessMode: 'SELECT_DATE',
@@ -24,6 +25,12 @@ const EventForm = ({ onBeforeSubmit, onSuccess }) => {
       beforeVisitPercent: 80,
       sameDayPercent: 50,
       description: 'Standard refund policy'
+    },
+    payoutDetails: {
+      bankName: '',
+      accountNumber: '',
+      accountHolderName: '',
+      ifscCode: ''
     }
   });
   const [loading, setLoading] = useState(false);
@@ -119,7 +126,7 @@ const EventForm = ({ onBeforeSubmit, onSuccess }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className={labelClasses}>
                     <MapPin className="text-cyan-500" size={16} /> Event Location *
@@ -142,6 +149,19 @@ const EventForm = ({ onBeforeSubmit, onSuccess }) => {
                     placeholder="https://image-link.com" 
                     value={form.image}
                     onChange={(e) => setForm({ ...form, image: e.target.value })} 
+                    className={inputClasses}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClasses}>
+                    <Image className="text-cyan-500" size={16} /> Pass Background URL
+                  </label>
+                  <input 
+                    type="url"
+                    placeholder="https://background-link.com" 
+                    value={form.passBackground || ''}
+                    onChange={(e) => setForm({ ...form, passBackground: e.target.value })} 
                     className={inputClasses}
                   />
                 </div>
@@ -222,6 +242,18 @@ const EventForm = ({ onBeforeSubmit, onSuccess }) => {
               </div>
             )}
 
+            {/* Warning Box */}
+            <div className="bg-cyan-950/40 border border-cyan-500/20 rounded-3xl p-6 text-sm text-cyan-400 leading-relaxed">
+              <p className="font-extrabold flex items-center gap-2 mb-2 uppercase tracking-wider text-xs">
+                <Shield size={16} /> Platform Fee & Cancellation Policies
+              </p>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs font-semibold text-slate-400">
+                <li>There is a <strong className="text-cyan-300">5% platform fee</strong> charged on total profit. Please set your ticket price accordingly.</li>
+                <li>If a visitor cancels their pass, their refund is automatically processed and credited within <strong className="text-cyan-300">24 hours</strong>.</li>
+                <li>If the host or admin cancels the event, all visitors automatically receive a <strong className="text-cyan-300">100% full refund</strong>.</li>
+              </ul>
+            </div>
+
             {/* Pricing and Capacity */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
@@ -249,6 +281,60 @@ const EventForm = ({ onBeforeSubmit, onSuccess }) => {
                 />
               </div>
             </div>
+
+            {/* Bank Payout Account Details */}
+            {form.price > 0 && (
+              <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-slate-800 space-y-6 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2">
+                  <IndianRupee className="text-cyan-500" size={18} />
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-widest">Bank Payout Account (Required to receive money)</label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Account Holder Name *</label>
+                    <input 
+                      placeholder="e.g. John Doe"
+                      value={form.payoutDetails.accountHolderName}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, accountHolderName: e.target.value } })}
+                      className={`${inputClasses} py-3 bg-slate-950`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Bank Name *</label>
+                    <input 
+                      placeholder="e.g. HDFC Bank"
+                      value={form.payoutDetails.bankName}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, bankName: e.target.value } })}
+                      className={`${inputClasses} py-3 bg-slate-950`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Account Number *</label>
+                    <input 
+                      type="password"
+                      placeholder="Enter account number"
+                      value={form.payoutDetails.accountNumber}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, accountNumber: e.target.value } })}
+                      className={`${inputClasses} py-3 bg-slate-950`}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">IFSC Code *</label>
+                    <input 
+                      placeholder="e.g. HDFC0001234"
+                      value={form.payoutDetails.ifscCode}
+                      onChange={(e) => setForm({ ...form, payoutDetails: { ...form.payoutDetails, ifscCode: e.target.value.toUpperCase() } })}
+                      className={`${inputClasses} py-3 bg-slate-950`}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Refund Policy */}
             <div className="bg-slate-900/80 p-6 rounded-[2rem] border border-slate-800">

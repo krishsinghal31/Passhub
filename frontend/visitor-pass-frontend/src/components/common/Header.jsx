@@ -236,7 +236,7 @@ const Header = ({ setShowAuthModal }) => {
   return (
     <>
       <header 
-        className={`${isHomePage ? 'absolute' : 'sticky'} top-0 left-0 right-0 z-50 bg-[#0f172a]/80 backdrop-blur-xl border-b border-slate-800 text-slate-100 transition-all`}
+        className={`${isHomePage ? 'fixed' : 'sticky'} top-0 left-0 right-0 z-50 bg-[#0f172a]/80 backdrop-blur-xl border-b border-slate-800 text-slate-100 transition-all`}
       >
         <div className="max-w-7xl mx-auto flex justify-between items-center p-4">
           {/* Logo Section */}

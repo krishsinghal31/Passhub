@@ -10,10 +10,13 @@ const authorize = (...roles) => {
       }
 
       if (!roles.includes(req.user.role)) {
-        return res.status(403).json({ 
-          success: false,
-          message: "Access denied. Insufficient permissions." 
-        });
+        // Allow admins/super-admins to operate on SECURITY routes when assigned.
+        if (!(roles.includes('SECURITY') && ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role))) {
+          return res.status(403).json({ 
+            success: false,
+            message: "Access denied. Insufficient permissions." 
+          });
+        }
       }
 
       if (req.user.role === "SECURITY") {

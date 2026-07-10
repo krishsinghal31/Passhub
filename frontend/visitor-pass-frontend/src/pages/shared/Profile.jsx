@@ -486,11 +486,6 @@ const Profile = () => {
                 <span className="px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-cyan-400">
                   {user?.role}
                 </span>
-                {user?.subscription?.isActive && (
-                  <span className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-                    <CheckCircle size={12}/> Active Plan
-                  </span>
-                )}
               </div>
             </div>
 
@@ -521,18 +516,6 @@ const Profile = () => {
           )}
         </div>
 
-        {/* Subscription Section */}
-        {user?.subscription && (
-           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 mb-8 overflow-hidden relative">
-             <div className="absolute top-0 right-0 p-8 opacity-5"><CreditCard size={100}/></div>
-             <h2 className="text-xl font-black mb-6 uppercase tracking-tighter">Plan Overview</h2>
-             <div className="grid md:grid-cols-3 gap-4">
-               <PlanStat label="Current Plan" val={user.subscription.planName || 'Standard'} color="text-cyan-400" />
-               <PlanStat label="Days Remaining" val={`${user.subscription.daysRemaining || 0} Days`} color="text-emerald-400" />
-               <PlanStat label="Status" val={user.subscription.isActive ? 'Active' : 'Expired'} color={user.subscription.isActive ? 'text-cyan-400' : 'text-red-400'} />
-             </div>
-           </div>
-        )}
 
         <button
           onClick={() => navigate('/change-password')}

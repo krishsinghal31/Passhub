@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { User, Mail, Phone, Calendar, Plus, X, IndianRupee, Users, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { buildPassFilename, downloadDataUrl, generatePassImageDataUrl } from '../../utils/passImage';
 
 const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
   const { placeId: routePlaceId } = useParams();
@@ -13,6 +14,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
   const [visitDate, setVisitDate] = useState(propVisitDate || '');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [postBooking, setPostBooking] = useState(null);
 
   const ticketAccessMode = event?.ticketAccessMode || 'SELECT_DATE';
   const isAllDaysAccess = ticketAccessMode === 'ALL_DAYS';
@@ -79,11 +81,48 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
         if (res.data.amountToPay > 0) {
           toast.success(`Booking created. Amount due: ₹${res.data.amountToPay}`);
           navigate(`/payment/${res.data.bookingId}`, {
-            state: { amount: res.data.amountToPay, eventName: event?.name || 'Event' }
+            state: { 
+              amount: res.data.amountToPay, 
+              eventName: event?.name || 'Event',
+              passBackground: event?.passBackground || null,
+              eventImage: event?.image || null
+            }
           });
         } else {
-          toast.success('Booking confirmed. Free passes were sent by email.');
-          navigate('/dashboard');
+          toast.success('Booking confirmed. Generating email passes...');
+          const passImages = [];
+          for (const pass of res.data.passes || []) {
+            if (!pass?.qrImage) continue;
+            try {
+              const cardImage = await generatePassImageDataUrl({
+                eventName: event?.name,
+                guestName: pass.guest || 'Guest',
+                visitDate: visitDate || event?.eventDates?.start,
+                qrImage: pass.qrImage,
+                passBackground: event?.passBackground,
+                eventImage: event?.image
+              });
+              passImages.push({ passId: pass.passId, cardImage });
+            } catch (e) {
+              console.error("Error generating pass card image for email:", e);
+            }
+          }
+
+          try {
+            await api.post('/passes/send-email', {
+              bookingId: res.data.bookingId,
+              passImages
+            });
+            toast.success('Passes emailed successfully!');
+          } catch (emailErr) {
+            console.error("Failed to trigger pass email dispatch:", emailErr);
+          }
+
+          setPostBooking({
+            bookingId: res.data.bookingId,
+            passes: res.data.passes || [],
+            visitDate: visitDate || event?.eventDates?.start
+          });
         }
       }
     } catch (err) {
@@ -116,6 +155,36 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
 
   const totalAmount = event.price * guests.filter(g => g.name.trim()).length;
   const validGuests = guests.filter(g => g.name.trim());
+
+  const handleDownloadAllPasses = async () => {
+    if (!postBooking?.passes?.length) {
+      navigate('/dashboard');
+      return;
+    }
+
+    for (const pass of postBooking.passes) {
+      if (!pass?.qrImage) continue;
+      try {
+        const dataUrl = await generatePassImageDataUrl({
+          eventName: event?.name,
+          guestName: pass.guest || 'Guest',
+          visitDate: postBooking.visitDate,
+          qrImage: pass.qrImage,
+          passBackground: event?.passBackground,
+          eventImage: event?.image
+        });
+        const fileName = buildPassFilename({
+          eventName: event?.name,
+          guestName: pass.guest || 'Guest',
+          visitDate: postBooking.visitDate
+        });
+        downloadDataUrl(dataUrl, fileName);
+      } catch (_) {
+        // continue remaining downloads
+      }
+    }
+    navigate('/dashboard');
+  };
 
   return (
     <div className="min-h-screen bg-[#020617] py-12 px-6">
@@ -308,6 +377,29 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
           </button>
         </form>
       </div>
+
+      {postBooking && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-slate-900 border border-slate-700 rounded-3xl p-8">
+            <h3 className="text-2xl font-black text-white mb-2">Booking Confirmed</h3>
+            <p className="text-slate-400 text-sm mb-6">Would you like to download all generated pass images now?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleDownloadAllPasses}
+                className="py-3 rounded-xl bg-cyan-500 text-slate-950 font-black text-xs uppercase tracking-widest"
+              >
+                Download All
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="py-3 rounded-xl bg-slate-800 text-slate-200 font-black text-xs uppercase tracking-widest border border-slate-700"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

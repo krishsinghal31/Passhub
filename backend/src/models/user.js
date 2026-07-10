@@ -32,34 +32,6 @@ const userSchema = new mongoose.Schema(
     isHostingDisabled: {
       type: Boolean,
       default: false
-    },
-    subscription: {
-      planId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "SubscriptionPlan",
-        default: null
-      },
-      isActive: {
-        type: Boolean,
-        default: false
-      },
-      startDate: {
-        type: Date,
-        default: null
-      },
-      endDate: {
-        type: Date,
-        default: null
-      },
-      amountPaid: {
-        type: Number,
-        default: 0
-      },
-      paymentStatus: {
-        type: String,
-        enum: ["PENDING", "PAID", "FREE", "FAILED"],
-        default: "PENDING"
-      }
     }
   },
   {
@@ -76,35 +48,6 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   }
 };
 
-// Method to check if subscription is active
-userSchema.methods.hasActiveSubscription = function() {
-  if (!this.subscription || !this.subscription.isActive) {
-    return false;
-  }
-  
-  const now = new Date();
-  const endDate = new Date(this.subscription.endDate);
-  
-  return now <= endDate;
-};
 
-// Method to get subscription days remaining
-userSchema.methods.getSubscriptionDaysRemaining = function() {
-  if (!this.subscription || !this.subscription.endDate) {
-    return 0;
-  }
-  
-  const now = new Date();
-  const endDate = new Date(this.subscription.endDate);
-  
-  if (now > endDate) {
-    return 0;
-  }
-  
-  const diffTime = Math.abs(endDate - now);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  return diffDays;
-};
 
 module.exports = mongoose.model("User", userSchema);

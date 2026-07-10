@@ -3,14 +3,16 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { CreditCard, Landmark, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { buildPassFilename, downloadDataUrl, generatePassImageDataUrl } from '../../utils/passImage';
 
 const PaymentPage = () => {
     const { bookingId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
-    const { amount, eventName } = location.state || { amount: 0, eventName: 'Event' };
+    const { amount, eventName, passBackground, eventImage } = location.state || { amount: 0, eventName: 'Event' };
     const [processing, setProcessing] = useState(false);
     const [gateway, setGateway] = useState('RAZORPAY');
+    const [postPayment, setPostPayment] = useState(null);
 
     const handlePayment = async () => {
         setProcessing(true);
@@ -22,14 +24,72 @@ const PaymentPage = () => {
             });
             
             if (res.data.success) {
-                toast.success("Payment successful. Passes generated.");
-                navigate('/dashboard');
+                toast.success("Payment successful. Generating email passes...");
+                const passImages = [];
+                for (const pass of res.data.passes || []) {
+                  if (!pass?.qrImage) continue;
+                  try {
+                    const cardImage = await generatePassImageDataUrl({
+                      eventName,
+                      guestName: pass.guest,
+                      visitDate: new Date(),
+                      qrImage: pass.qrImage,
+                      passBackground,
+                      eventImage
+                    });
+                    passImages.push({ passId: pass.passId, cardImage });
+                  } catch (e) {
+                    console.error("Error generating pass card image for payment email:", e);
+                  }
+                }
+
+                try {
+                  await api.post('/passes/send-email', {
+                    bookingId,
+                    passImages
+                  });
+                  toast.success('Passes emailed successfully!');
+                } catch (emailErr) {
+                  console.error("Failed to trigger pass email dispatch:", emailErr);
+                }
+
+                setPostPayment({
+                  bookingId,
+                  passes: res.data.passes || []
+                });
             }
         } catch (err) {
             toast.error(err.response?.data?.message || "Payment confirmation failed.");
         } finally {
             setProcessing(false);
         }
+    };
+
+    const handleDownloadAllPasses = async () => {
+      if (!postPayment?.passes?.length) {
+        navigate('/dashboard');
+        return;
+      }
+      for (const pass of postPayment.passes) {
+        if (!pass?.qrImage) continue;
+        try {
+          const dataUrl = await generatePassImageDataUrl({
+            eventName,
+            guestName: pass.guest,
+            visitDate: new Date(),
+            qrImage: pass.qrImage,
+            passBackground,
+            eventImage
+          });
+          const filename = buildPassFilename({
+            eventName,
+            guestName: pass.guest,
+            visitDate: new Date()
+          });
+          downloadDataUrl(dataUrl, filename);
+        } catch (_) {}
+      }
+      navigate('/dashboard');
     };
 
     return (
@@ -78,6 +138,22 @@ const PaymentPage = () => {
                     {processing ? 'Processing...' : `Pay ₹${amount}`}
                 </button>
             </div>
+            {postPayment && (
+              <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-slate-900 border border-slate-700 rounded-3xl p-8 text-white">
+                  <h3 className="text-2xl font-black mb-2">Payment Confirmed</h3>
+                  <p className="text-slate-400 text-sm mb-6">Download all pass images now?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={handleDownloadAllPasses} className="py-3 rounded-xl bg-cyan-500 text-slate-950 font-black text-xs uppercase tracking-widest">
+                      Download All
+                    </button>
+                    <button onClick={() => navigate('/dashboard')} className="py-3 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 font-black text-xs uppercase tracking-widest">
+                      Dashboard
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
         </div>
     );
 };

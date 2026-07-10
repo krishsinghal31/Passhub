@@ -12,9 +12,6 @@ exports.createPlace = async (req, res) => {
   try {
     console.log('🔍 User ID:', req.user.id);
     
-    const person = await User.findById(req.user.id);
-    console.log('🔍 User subscription:', JSON.stringify(person.subscription, null, 2));
-
     const {
       name,
       location,
@@ -24,40 +21,30 @@ exports.createPlace = async (req, res) => {
       ticketAccessMode,
       price,
       dailyCapacity,
-      refundPolicy
+      refundPolicy,
+      payoutDetails
     } = req.body;
 
     const hostId = req.user.id;
     const host = await User.findById(hostId);
 
-    if (!host.subscription || !host.subscription.isActive) {
-      return res.status(403).json({ 
+    if (!host.isActive || host.isHostingDisabled) {
+      return res.status(403).json({
         success: false,
-        message: "Active subscription required" 
+        message: "Your hosting access is disabled by admin"
       });
     }
 
-    const subStart = new Date(host.subscription.startDate);
-    const subEnd = new Date(host.subscription.endDate);
-    subStart.setHours(0, 0, 0, 0);
-    subEnd.setHours(23, 59, 59, 999);
-    
     const eventStart = new Date(eventDates.start);
     const eventEnd = new Date(eventDates.end);
     eventStart.setHours(0, 0, 0, 0);
     eventEnd.setHours(23, 59, 59, 999);
 
-    if (eventStart < subStart || eventEnd > subEnd) {
-      return res.status(400).json({ 
-        success: false,
-        message: "Event dates must be within subscription period" 
-      });
-    }
-
     const place = await Place.create({
       name,
       location,
       image,
+      passBackground: req.body.passBackground || null,
       description: description || "",
       host: hostId,
       eventDates: {
@@ -65,8 +52,8 @@ exports.createPlace = async (req, res) => {
         end: eventEnd
       },
       hostingValidity: {
-        start: subStart,
-        end: subEnd
+        start: eventStart,
+        end: eventEnd
       },
       price,
       dailyCapacity,
@@ -77,7 +64,13 @@ exports.createPlace = async (req, res) => {
         description: refundPolicy?.description || "Standard refund policy"
       },
       ticketAccessMode: ticketAccessMode === "ALL_DAYS" ? "ALL_DAYS" : "SELECT_DATE",
-      isBookingEnabled: true
+      isBookingEnabled: true,
+      payoutDetails: {
+        bankName: payoutDetails?.bankName || null,
+        accountNumber: payoutDetails?.accountNumber || null,
+        accountHolderName: payoutDetails?.accountHolderName || null,
+        ifscCode: payoutDetails?.ifscCode || null
+      }
     });
 
     res.status(201).json({ 
@@ -414,15 +407,7 @@ exports.updateEventDates = async (req, res) => {
     const newStartDate = date ? new Date(date) : new Date(place.eventDates.start);
     const newEndDate = date ? new Date(date) : new Date(place.eventDates.end);
 
-    const host = await User.findById(place.host);
-    const subEnd = new Date(host.subscription.endDate);
 
-    if (newEndDate > subEnd) {
-      return res.status(400).json({ 
-        success: false,
-        message: "Event end date exceeds subscription validity" 
-      });
-    }
 
     place.eventDates.start = newStartDate;
     place.eventDates.end = newEndDate;
@@ -480,27 +465,41 @@ exports.assignSecurity = async (req, res) => {
       });
     }
     
-    // Ensure the user can access SECURITY pages
-    if (user.role !== 'SECURITY') {
+    // Do NOT downgrade admins to SECURITY. Keep ADMIN/SUPER_ADMIN role and rely on assignment checks.
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role) && user.role !== 'SECURITY') {
       user.role = 'SECURITY';
       // Keep status PENDING so they can change password if needed
       user.status = user.status || 'PENDING';
       await user.save();
     }
 
-    await Security.create({
-      user: user._id,
-      email: normalizedEmail,
-      place: placeId,
-      assignedBy: req.user.id, 
-      passwordHash: user.password, 
-      assignmentPeriod: {
+    let existingSecurity = await Security.findOne({ email: normalizedEmail, place: placeId });
+
+    if (existingSecurity) {
+      existingSecurity.assignmentPeriod = {
         start: new Date(assignmentPeriod.start),
         end: new Date(assignmentPeriod.end)
-      },
-      status: 'ACCEPTED',
-      isActive: true
-    });
+      };
+      existingSecurity.isActive = true;
+      existingSecurity.status = 'ACCEPTED';
+      existingSecurity.assignedBy = req.user.id;
+      existingSecurity.passwordHash = user.password;
+      await existingSecurity.save();
+    } else {
+      await Security.create({
+        user: user._id,
+        email: normalizedEmail,
+        place: placeId,
+        assignedBy: req.user.id, 
+        passwordHash: user.password, 
+        assignmentPeriod: {
+          start: new Date(assignmentPeriod.start),
+          end: new Date(assignmentPeriod.end)
+        },
+        status: 'ACCEPTED',
+        isActive: true
+      });
+    }
 
     if (isNewUser) {
       try {
@@ -720,7 +719,7 @@ exports.getSecurityForPlace = async (req, res) => {
 exports.updateEventDetailsWithNotification = async (req, res) => {
   try {
     const { placeId } = req.params;
-    const { name, location, image, description, price, refundPolicy } = req.body;
+    const { name, location, image, passBackground, description, price, refundPolicy, payoutDetails } = req.body;
     const hostId = req.user.id;
 
     const Place = require("../models/place");
@@ -747,8 +746,17 @@ exports.updateEventDetailsWithNotification = async (req, res) => {
     if (name) place.name = name;
     if (location) place.location = location;
     if (image) place.image = image;
+    if (passBackground !== undefined) place.passBackground = passBackground;
     if (description !== undefined) place.description = description;
     if (price !== undefined) place.price = price;
+    if (payoutDetails) {
+      place.payoutDetails = {
+        bankName: payoutDetails.bankName !== undefined ? payoutDetails.bankName : place.payoutDetails?.bankName,
+        accountNumber: payoutDetails.accountNumber !== undefined ? payoutDetails.accountNumber : place.payoutDetails?.accountNumber,
+        accountHolderName: payoutDetails.accountHolderName !== undefined ? payoutDetails.accountHolderName : place.payoutDetails?.accountHolderName,
+        ifscCode: payoutDetails.ifscCode !== undefined ? payoutDetails.ifscCode : place.payoutDetails?.ifscCode
+      };
+    }
     if (refundPolicy) {
       place.refundPolicy = {
         ...place.refundPolicy,
@@ -894,7 +902,7 @@ exports.cancelMyEvent = async (req, res) => {
       totalRefundAmount += refundAmount;
 
       pass.status = "CANCELLED";
-      pass.refundStatus = "INITIATED";
+      pass.refundStatus = "COMPLETED";
       pass.refundAmount = refundAmount;
       pass.refundPercentage = 100;
       pass.cancelledAt = new Date();
@@ -920,7 +928,7 @@ exports.cancelMyEvent = async (req, res) => {
     for (const [bookingId, data] of affectedBookings) {
       const booking = data.booking;
       booking.status = "CANCELLED";
-      booking.refundStatus = "FULL";
+      booking.refundStatus = "COMPLETED";
       booking.refundAmount = data.refundAmount;
       booking.cancelledAt = new Date();
       booking.cancellationReason = `Host cancelled event: ${reason}`;
@@ -941,7 +949,7 @@ exports.cancelMyEvent = async (req, res) => {
               <p><strong>Reason:</strong> ${reason}</p>
               <div style="background: #dcfce7; border-left: 4px solid #16a34a; padding: 15px; margin: 20px 0; border-radius: 4px;">
                 <p style="margin: 0; color: #166534; font-weight: bold;">💰 Refund Amount: ₹${data.refundAmount}</p>
-                <p style="margin: 5px 0 0 0; color: #166534; font-size: 14px;">100% refund will be processed within 3-5 business days.</p>
+                <p style="margin: 5px 0 0 0; color: #166534; font-size: 14px;">100% refund will be processed automatically within 24 hours.</p>
               </div>
               <p>We apologize for any inconvenience.</p>
             </div>
@@ -984,7 +992,7 @@ exports.cancelMyEvent = async (req, res) => {
           totalBookings: affectedBookings.size,
           totalRefundAmount,
           refundPercentage: 100,
-          processingTime: "3-5 business days"
+          processingTime: "24 hours"
         }
       }
     });

@@ -106,15 +106,6 @@ const CreateEvent = () => {
   }, [user, navigate]);
 
   const handleEventSubmission = (formData) => {
-    if (!user?.subscription?.isActive) {
-      navigate('/subscriptions', { 
-        state: { 
-          eventDates: { start: formData.eventDates?.start, end: formData.eventDates?.end },
-          pendingEvent: formData 
-        } 
-      });
-      return false;
-    }
     return true; 
   };
 

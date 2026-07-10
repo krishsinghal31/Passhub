@@ -10,72 +10,52 @@ exports.passEmailTemplate = ({ guest, place, visitDate, passes }) => {
     });
   };
 
-  const passesHTML = passes.map((pass, index) => `
-    <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); padding: 25px; border-radius: 15px; margin: 20px 0; border: 2px solid #4F46E5;">
-      <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 15px;">
-        <h3 style="margin: 0 0 15px 0; color: #4F46E5; font-size: 20px;">Pass ${index + 1} - ${pass.guest.name}</h3>
-        
-        <table style="width: 100%; margin-bottom: 15px;">
-          <tr>
-            <td style="padding: 8px 0;">
-              <strong style="color: #6B7280;">Guest Name:</strong>
-            </td>
-            <td style="padding: 8px 0; text-align: right;">
-              <span style="color: #1F2937;">${pass.guest.name}</span>
-            </td>
-          </tr>
-          ${pass.guest.email ? `
-          <tr>
-            <td style="padding: 8px 0;">
-              <strong style="color: #6B7280;">Email:</strong>
-            </td>
-            <td style="padding: 8px 0; text-align: right;">
-              <span style="color: #1F2937;">${pass.guest.email}</span>
-            </td>
-          </tr>
-          ` : ''}
-          ${pass.slotNumber ? `
-          <tr>
-            <td style="padding: 8px 0;">
-              <strong style="color: #6B7280;">Slot Number:</strong>
-            </td>
-            <td style="padding: 8px 0; text-align: right;">
-              <span style="color: #4F46E5; font-size: 18px; font-weight: bold;">#${pass.slotNumber}</span>
-            </td>
-          </tr>
-          ` : ''}
-          <tr>
-            <td style="padding: 8px 0;">
-              <strong style="color: #6B7280;">Status:</strong>
-            </td>
-            <td style="padding: 8px 0; text-align: right;">
-              <span style="background: #10B981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;">${pass.status}</span>
-            </td>
-          </tr>
-        </table>
-      </div>
+  const passesHTML = passes.map((pass, index) => {
+    if (pass.cardCid) {
+      return `
+        <div style="text-align: center; margin: 25px 0;">
+          <img 
+            src="${pass.cardCid}" 
+            alt="Visitor Pass Card" 
+            style="width: 100%; max-width: 500px; height: auto; border-radius: 16px; display: block; margin: 0 auto; box-shadow: 0 8px 24px rgba(0,0,0,0.15);" 
+          />
+        </div>
+      `;
+    }
 
-      ${pass.qrImage ? `
-  <div style="background: white; padding: 25px; border-radius: 10px; text-align: center;">
-    <p style="margin: 0 0 15px 0; color: #6B7280; font-size: 14px; font-weight: bold;">SCAN THIS QR CODE AT ENTRANCE</p>
-    <div style="background: white; display: inline-block; padding: 15px; border: 3px solid #4F46E5; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-      <img 
-        src="${pass.qrImage && pass.qrImage.includes('data:') ? `cid:qr-${pass._id}` : pass.qrImage}" 
-        alt="QR Code" 
-        style="width: 250px; height: 250px; display: block; margin: 0 auto; border: 4px solid #ffffff;" 
-        width="250" 
-        height="250"
-      />
-    </div>
-    <p style="margin: 15px 0 0 0; color: #EF4444; font-weight: bold; font-size: 13px;">⚠️ Present this QR code at the event entrance</p>
-  </div>
-` : `
-  <div style="background: #FEF3C7; padding: 15px; border-radius: 10px; border-left: 4px solid #F59E0B; text-align: center;">
-     <p style="margin: 0; color: #92400E; font-size: 14px;"><strong>⏳ Processing:</strong> Your QR code is being generated.</p>
-  </div>
-`}
-    </div>
-  `).join('');
+    const bgStyle = (place.passBackground || place.image)
+      ? `background-image: url('${place.passBackground || place.image}'); background-size: cover; background-position: center;`
+      : `background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #0e7490 100%);`;
+
+    return `
+      <div style="width: 500px; height: 280px; position: relative; border-radius: 16px; margin: 25px auto; overflow: hidden; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,0.2); ${bgStyle}">
+        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.45); z-index: 1;"></div>
+        
+        <div style="position: absolute; top: 20px; left: 25px; font-size: 24px; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.6); z-index: 2; max-width: 250px; line-height: 1.2;">
+          ${place.name}
+        </div>
+
+        <div style="position: absolute; top: 22px; right: 25px; display: flex; align-items: center; z-index: 2;">
+          <span style="color: #ff6b00; font-weight: 900; font-size: 20px; font-style: italic; margin-right: 4px;">V</span>
+          <span style="color: #ffffff; font-weight: bold; font-size: 13px; letter-spacing: 1px;">VISITPASS</span>
+        </div>
+
+        <div style="position: absolute; bottom: 20px; left: 25px; right: 220px; background: rgba(0, 0, 0, 0.55); border-top: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 12px 15px; z-index: 2;">
+          <div style="font-size: 12px; color: #9ca3af; margin-bottom: 2px;">Guest: <span style="font-weight: bold; color: #ffffff; font-size: 14px;">${pass.guest?.name || pass.guest || 'Guest'}</span></div>
+          <div style="font-size: 12px; color: #9ca3af;">Date: <span style="font-weight: bold; color: #ffffff; font-size: 14px;">${formatDate(pass.visitDate)}</span></div>
+        </div>
+
+        <div style="position: absolute; bottom: 20px; right: 25px; top: 70px; width: 170px; background: rgba(0, 0, 0, 0.45); border: 2px solid #22d3ee; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; z-index: 2;">
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center; background: white; padding: 8px;">
+            <img src="${pass.qrImage && pass.qrImage.includes('data:') ? `cid:qr-${pass._id}` : pass.qrImage}" alt="QR Code" style="width: 100%; height: auto; display: block;" />
+          </div>
+          <div style="background: #0f172a; color: #22d3ee; text-align: center; font-size: 10px; font-weight: bold; padding: 6px 0; letter-spacing: 0.5px; border-top: 1px solid #22d3ee;">
+            SCAN TO ENTER
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 
   return `
     <!DOCTYPE html>

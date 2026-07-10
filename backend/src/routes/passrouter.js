@@ -11,6 +11,7 @@ const refundController = require("../controllers/refund");
 
 // Visitor booking
 router.post("/request", authMiddleware, visitorController.createBooking);
+router.post("/send-email", authMiddleware, visitorController.sendPassesEmailWithCards);
 router.get("/my-passes", authMiddleware, visitorController.getMyPasses);
 router.get("/bookings", authMiddleware, visitorController.getAllBookingsByVisitor);
 router.get("/booking/:bookingId", authMiddleware, visitorController.getBookingDetails);

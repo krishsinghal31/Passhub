@@ -330,35 +330,26 @@ exports.getAllHosts = async (req, res) => {
           "eventDates.end": { $gte: new Date() }
         });
 
-        const totalRevenue = await Pass.aggregate([
-          { 
-            $lookup: {
-              from: 'places',
-              localField: 'place',
-              foreignField: '_id',
-              as: 'placeData'
-            }
-          },
-          { $unwind: '$placeData' },
-          { 
-            $match: { 
-              'placeData.host': host._id,
-              paymentStatus: 'PAID'
-            }
-          },
-          {
-            $group: {
-              _id: null,
-              total: { $sum: '$amountPaid' }
+        const hostPlaces = await Place.find({ host: host._id });
+        const hostPlaceIds = hostPlaces.map(p => p._id);
+        const hostPasses = await Pass.find({ place: { $in: hostPlaceIds } });
+        let hostRevenue = 0;
+        for (const pass of hostPasses) {
+          if (pass.paymentStatus === "PAID") {
+            hostRevenue += pass.amountPaid || 0;
+          } else if (pass.paymentStatus === "REFUNDED") {
+            const kept = (pass.amountPaid || 0) - (pass.refundAmount || 0);
+            if (kept > 0) {
+              hostRevenue += kept;
             }
           }
-        ]);
+        }
 
         return {
           ...host.toObject(),
           eventsCount,
           activeEvents,
-          totalRevenue: totalRevenue[0]?.total || 0
+          totalRevenue: hostRevenue
         };
       })
     );
@@ -625,10 +616,18 @@ exports.getDashboardStats = async (req, res) => {
     const totalEvents = await Place.countDocuments({});
     const totalPasses = await Pass.countDocuments({});
     
-    const revenueData = await Pass.aggregate([
-      { $match: { paymentStatus: 'PAID' } },
-      { $group: { _id: null, total: { $sum: '$amountPaid' } } }
-    ]);
+    const allPasses = await Pass.find({});
+    let calculatedRevenue = 0;
+    for (const pass of allPasses) {
+      if (pass.paymentStatus === "PAID") {
+        calculatedRevenue += pass.amountPaid || 0;
+      } else if (pass.paymentStatus === "REFUNDED") {
+        const kept = (pass.amountPaid || 0) - (pass.refundAmount || 0);
+        if (kept > 0) {
+          calculatedRevenue += kept;
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -636,7 +635,7 @@ exports.getDashboardStats = async (req, res) => {
         totalUsers: totalUsers,
         totalEvents: totalEvents,
         totalPasses: totalPasses,
-        totalRevenue: revenueData[0]?.total || 0
+        totalRevenue: calculatedRevenue
       }
     });
   } catch (error) {

@@ -147,10 +147,18 @@ exports.getMyHostedEvents = async (req, res) => {
           status: "APPROVED"
         });
         
-        const totalRevenue = await Pass.aggregate([
-          { $match: { place: place._id, paymentStatus: "PAID" } },
-          { $group: { _id: null, total: { $sum: "$amountPaid" } } }
-        ]);
+        const placePasses = await Pass.find({ place: place._id });
+        let calculatedRevenue = 0;
+        for (const pass of placePasses) {
+          if (pass.paymentStatus === "PAID") {
+            calculatedRevenue += pass.amountPaid || 0;
+          } else if (pass.paymentStatus === "REFUNDED") {
+            const kept = (pass.amountPaid || 0) - (pass.refundAmount || 0);
+            if (kept > 0) {
+              calculatedRevenue += kept;
+            }
+          }
+        }
 
         return {
           _id: place._id,
@@ -165,7 +173,7 @@ exports.getMyHostedEvents = async (req, res) => {
           bookings: totalBookings,
           capacity: place.dailyCapacity,
           status: new Date(place.eventDates.end) >= new Date() ? 'upcoming' : 'completed',
-          revenue: totalRevenue[0]?.total || 0,
+          revenue: calculatedRevenue,
           isBookingEnabled: place.isBookingEnabled
         };
       })
@@ -231,10 +239,18 @@ exports.getPlaceDashboard = async (req, res) => {
       isActive: true 
     });
     
-    const totalRevenue = await Pass.aggregate([
-      { $match: { place: place._id, paymentStatus: "PAID" } },
-      { $group: { _id: null, total: { $sum: "$amountPaid" } } }
-    ]);
+    const placePasses = await Pass.find({ place: place._id });
+    let calculatedRevenue = 0;
+    for (const pass of placePasses) {
+      if (pass.paymentStatus === "PAID") {
+        calculatedRevenue += pass.amountPaid || 0;
+      } else if (pass.paymentStatus === "REFUNDED") {
+        const kept = (pass.amountPaid || 0) - (pass.refundAmount || 0);
+        if (kept > 0) {
+          calculatedRevenue += kept;
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -254,7 +270,7 @@ exports.getPlaceDashboard = async (req, res) => {
           todayPasses,
           checkedIn,
           remainingCapacity: place.dailyCapacity - todayPasses,
-          totalRevenue: totalRevenue[0]?.total || 0
+          totalRevenue: calculatedRevenue
         },
         security: security.length,
         eventDates: place.eventDates,

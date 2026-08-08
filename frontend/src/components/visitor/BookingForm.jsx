@@ -89,35 +89,7 @@ const BookingForm = ({ placeId: propPlaceId, visitDate: propVisitDate }) => {
             }
           });
         } else {
-          toast.success('Booking confirmed. Generating email passes...');
-          const passImages = [];
-          for (const pass of res.data.passes || []) {
-            if (!pass?.qrImage) continue;
-            try {
-              const cardImage = await generatePassImageDataUrl({
-                eventName: event?.name,
-                guestName: pass.guest || 'Guest',
-                visitDate: visitDate || event?.eventDates?.start,
-                qrImage: pass.qrImage,
-                passBackground: event?.passBackground,
-                eventImage: event?.image
-              });
-              passImages.push({ passId: pass.passId, cardImage });
-            } catch (e) {
-              console.error("Error generating pass card image for email:", e);
-            }
-          }
-
-          try {
-            await api.post('/passes/send-email', {
-              bookingId: res.data.bookingId,
-              passImages
-            });
-            toast.success('Passes emailed successfully!');
-          } catch (emailErr) {
-            console.error("Failed to trigger pass email dispatch:", emailErr);
-          }
-
+          toast.success('Booking confirmed! Passes have been generated and emailed to you.');
           setPostBooking({
             bookingId: res.data.bookingId,
             passes: res.data.passes || [],

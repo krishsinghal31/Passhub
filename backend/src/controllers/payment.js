@@ -6,11 +6,12 @@ const crypto = require("crypto");
 const { generateQR } = require("../services/qr");
 const { sendPassEmail } = require("../services/email");
 const { passEmailTemplate } = require("../templates/passEmail");
+const { sendBookingPassesEmail } = require("./visitor");
 
 exports.confirmPayment = async (req, res) => {
   try {
     const { bookingId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.id.toString();
     const passes = await Pass.find({ bookingId })
       .populate('place')
       .populate('bookedBy', 'name email');
@@ -21,6 +22,12 @@ exports.confirmPayment = async (req, res) => {
         message: "Booking not found" 
       });
     }
+
+    console.log("DEBUG confirmPayment:", {
+      bookedBy: passes[0].bookedBy,
+      bookedById: passes[0].bookedBy?._id?.toString() || passes[0].bookedBy?.toString(),
+      userId
+    });
 
     if (passes[0].bookedBy._id.toString() !== userId) {
       return res.status(403).json({ 
@@ -109,6 +116,12 @@ exports.confirmPayment = async (req, res) => {
       booking.status = "CONFIRMED";
       booking.paymentStatus = "PAID";
       await booking.save();
+    }
+
+    try {
+      await sendBookingPassesEmail(bookingId, userId);
+    } catch (emailErr) {
+      console.error("❌ Failed to automatically send paid passes email:", emailErr.message);
     }
 
     res.json({

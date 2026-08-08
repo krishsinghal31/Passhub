@@ -142,12 +142,7 @@ const AdminManageEvent = () => {
               <p className="text-sm text-gray-600">Phone</p>
               <p className="font-semibold text-gray-800">{event.host?.phone || 'N/A'}</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Subscription</p>
-              <p className={`font-semibold ${event.host?.subscription?.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                {event.host?.subscription?.isActive ? 'Active' : 'Inactive'}
-              </p>
-            </div>
+
           </div>
         </div>
 

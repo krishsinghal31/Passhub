@@ -24,35 +24,7 @@ const PaymentPage = () => {
             });
             
             if (res.data.success) {
-                toast.success("Payment successful. Generating email passes...");
-                const passImages = [];
-                for (const pass of res.data.passes || []) {
-                  if (!pass?.qrImage) continue;
-                  try {
-                    const cardImage = await generatePassImageDataUrl({
-                      eventName,
-                      guestName: pass.guest,
-                      visitDate: new Date(),
-                      qrImage: pass.qrImage,
-                      passBackground,
-                      eventImage
-                    });
-                    passImages.push({ passId: pass.passId, cardImage });
-                  } catch (e) {
-                    console.error("Error generating pass card image for payment email:", e);
-                  }
-                }
-
-                try {
-                  await api.post('/passes/send-email', {
-                    bookingId,
-                    passImages
-                  });
-                  toast.success('Passes emailed successfully!');
-                } catch (emailErr) {
-                  console.error("Failed to trigger pass email dispatch:", emailErr);
-                }
-
+                toast.success("Payment successful! Passes have been generated and emailed to you.");
                 setPostPayment({
                   bookingId,
                   passes: res.data.passes || []

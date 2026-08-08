@@ -150,6 +150,12 @@ for (let i = 0; i < passes.length; i++) {
       booking.paymentStatus = "FREE";
       await booking.save();
 
+      try {
+        await sendBookingPassesEmail(booking._id, visitorId);
+      } catch (emailErr) {
+        console.error("❌ Failed to automatically send free passes email:", emailErr.message);
+      }
+
       return res.json({
         success: true,
         message: "Booking confirmed. Passes generated.",
@@ -351,72 +357,61 @@ exports.getBookingDetails = async (req, res) => {
   }
 };
 
+const sendBookingPassesEmail = async (bookingId, visitorId) => {
+  const booking = await Booking.findById(bookingId).populate("place");
+  if (!booking) throw new Error("Booking not found");
+
+  const passes = await Pass.find({ bookingId }).populate("place");
+  if (!passes.length) throw new Error("No passes found for this booking");
+
+  const User = require("../models/user");
+  const visitor = await User.findById(visitorId).select("name email");
+  if (!visitor || !visitor.email) throw new Error("Visitor email not found");
+
+  // Construct attachments from the generated QR codes in database
+  const attachments = [];
+  for (const pass of passes) {
+    if (pass.qrImage && pass.qrImage.startsWith('data:image')) {
+      const base64Data = pass.qrImage.replace(/^data:image\/\w+;base64,/, '');
+      attachments.push({
+        filename: `qr-${pass._id}.png`,
+        content: Buffer.from(base64Data, 'base64'),
+        cid: `qr-${pass._id}`
+      });
+    }
+  }
+
+  await sendPassEmail({
+    to: visitor.email,
+    subject: `Booking Confirmed - ${booking.place.name}`,
+    html: passEmailTemplate({
+      guest: { name: visitor.name, email: visitor.email },
+      place: booking.place,
+      visitDate: booking.visitDate,
+      passes: passes
+    }),
+    attachments: attachments
+  });
+
+  console.log(`✅ Ticket Email sent to Visitor: ${visitor.email}`);
+};
+
+exports.sendBookingPassesEmail = sendBookingPassesEmail;
+
 exports.sendPassesEmailWithCards = async (req, res) => {
   try {
-    const { bookingId, passImages } = req.body;
+    const { bookingId } = req.body;
     const visitorId = req.user.id;
 
-    if (!bookingId || !passImages || !passImages.length) {
-      return res.status(400).json({ success: false, message: "Booking ID and pass card images are required." });
+    if (!bookingId) {
+      return res.status(400).json({ success: false, message: "Booking ID is required." });
     }
 
-    const booking = await Booking.findById(bookingId).populate("place");
-    if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found." });
-    }
-
-    // Verify ownership
-    if (booking.visitor.toString() !== visitorId.toString()) {
-      return res.status(403).json({ success: false, message: "Not authorized." });
-    }
-
-    const passes = await Pass.find({ bookingId }).populate("place");
-    if (!passes.length) {
-      return res.status(404).json({ success: false, message: "No passes found for this booking." });
-    }
-
-    const User = require("../models/user");
-    const visitor = await User.findById(visitorId).select("name email");
-    if (!visitor || !visitor.email) {
-      return res.status(400).json({ success: false, message: "Visitor email not found." });
-    }
-
-    // Construct attachments from the generated pass card images passed from the frontend
-    const attachments = passImages.map((pImg, idx) => {
-      const base64Data = pImg.cardImage.replace(/^data:image\/\w+;base64,/, '');
-      return {
-        filename: `pass-${pImg.passId || idx + 1}.png`,
-        content: base64Data,
-        encoding: 'base64',
-        cid: `passcard-${pImg.passId}`
-      };
-    });
-
-    const passesWithCids = passes.map(pass => {
-      const passImgObj = passImages.find(pi => pi.passId.toString() === pass._id.toString());
-      return {
-        ...pass.toObject(),
-        cardCid: passImgObj ? `cid:passcard-${pass._id}` : null
-      };
-    });
-
-    await sendPassEmail({
-      to: visitor.email,
-      subject: `Booking Confirmed - ${booking.place.name}`,
-      html: passEmailTemplate({
-        guest: { name: visitor.name, email: visitor.email },
-        place: booking.place,
-        visitDate: booking.visitDate,
-        passes: passesWithCids
-      }),
-      attachments: attachments
-    });
-
-    console.log(`✅ Ticket Card Email sent to Visitor: ${visitor.email}`);
+    await sendBookingPassesEmail(bookingId, visitorId);
     res.json({ success: true, message: "Email sent successfully." });
 
   } catch (error) {
-    console.error("Error sending pass email with cards:", error);
+    console.error("Error sending pass email:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
